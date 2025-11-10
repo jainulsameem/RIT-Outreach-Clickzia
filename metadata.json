@@ -1,0 +1,7 @@
+{
+  "name": "Local Outreach CRM",
+  "description": "An AI-powered outreach application to extract business data from local areas, generate personalized emails, and manage outreach efforts through an integrated CRM system.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
