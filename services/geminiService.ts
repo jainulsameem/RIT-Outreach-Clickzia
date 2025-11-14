@@ -17,20 +17,41 @@ const parseJsonResponse = (text: string): any => {
     if (jsonMatch && jsonMatch[1]) {
         jsonString = jsonMatch[1];
     } else {
-        // Fallback: find the first '{' and the last '}'
+        // Fallback: find the first '{' or '[' and the last '}' or ']'
+        const firstBracket = text.indexOf('[');
         const firstBrace = text.indexOf('{');
+
+        let start = -1;
+        if (firstBracket > -1 && firstBrace > -1) {
+            start = Math.min(firstBracket, firstBrace);
+        } else if (firstBracket > -1) {
+            start = firstBracket;
+        } else {
+            start = firstBrace;
+        }
+
+        const lastBracket = text.lastIndexOf(']');
         const lastBrace = text.lastIndexOf('}');
+
+        let end = -1;
+        if (lastBracket > -1 && lastBrace > -1) {
+            end = Math.max(lastBracket, lastBrace);
+        } else if (lastBracket > -1) {
+            end = lastBracket;
+        } else {
+            end = lastBrace;
+        }
         
-        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-            jsonString = text.substring(firstBrace, lastBrace + 1);
+        if (start !== -1 && end !== -1 && end > start) {
+            jsonString = text.substring(start, end + 1);
         }
     }
     
     try {
-        return JSON.parse(jsonString);
+        return JSON.parse(jsonString.trim());
     } catch (error) {
-        console.error("Failed to parse JSON string. Content was:", jsonString);
-        console.error("Original model response was:", text);
+        console.error("Failed to parse JSON string. Content was:", `>>>${jsonString}<<<`);
+        console.error("Original model response was:", `>>>${text}<<<`);
         // This error will be caught by the calling function, which shows the user-facing error.
         throw new Error("The model returned data in an unexpected format.");
     }
