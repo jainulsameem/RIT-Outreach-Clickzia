@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useEffect } from 'react';
 import type { User } from '../types';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 
@@ -19,7 +19,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [storedUsers, setStoredUsers] = useLocalStorage<User[]>('users', []);
-    const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [currentUser, setCurrentUser] = useLocalStorage<User | null>('currentUser', null);
 
     // Seed master admin if no users exist
     useEffect(() => {

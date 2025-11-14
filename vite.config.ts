@@ -1,3 +1,7 @@
+// Fix: Add a file-scoped reference to Node.js types to ensure `process.cwd()` is correctly typed
+// for the config file without causing global type conflicts.
+/// <reference types="node" />
+
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 // Fix: Removed explicit import from 'process'. Using the `process` global directly in `vite.config.ts`
