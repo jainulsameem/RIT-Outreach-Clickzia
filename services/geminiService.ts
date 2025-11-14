@@ -161,26 +161,39 @@ export const findBusinessesOnFacebook = async (
 // Fix: Update function signature to return businesses and grounding chunks.
 ): Promise<{ businesses: Business[], groundingChunks: GroundingChunk[] | undefined }> => {
   const finalPrompt = `
-    Your primary and ONLY task is to return a valid JSON object. Do not add any commentary, explanation, or any text before or after the JSON object.
-    The JSON object must have a single key "businesses" which is an array of business objects.
+    Your task is to function as a data extraction and formatting API. You will receive a request and you MUST respond with only a valid JSON object.
     
-    To populate this array, perform a Google Search to find public Facebook Business Pages matching these criteria:
-    - Search Query Context: Find "${keywords}" in the "${industry === 'All' ? 'any' : industry}" category near "${location}".
-    - Your Google Search query must be restricted to Facebook pages. For example, use a query like: "official facebook page for ${keywords} ${industry} in ${location} site:facebook.com"
-    - Focus on official business pages, not personal profiles, groups, or event pages.
-    - The user requires exactly ${numberOfResults} business results. It is critical that you provide this many results if they exist. Do not arbitrarily limit the result set to a smaller number.
+    ## TASK
+    1.  Perform a Google Search to find public Facebook Business Pages.
+    2.  Use the search results (titles and snippets) to extract information about each business.
+    3.  Format the extracted information into a JSON object.
 
-    From each relevant Facebook Business Page found in the search results, carefully extract the following information. Look for this data primarily in the page's 'About' section:
-    - id: A unique generated ID, prefixed with 'fb-'.
-    - name: The Business Name as it appears on the page.
-    - address: The full physical address, if publicly listed. If not found, return null.
-    - phone: The phone number, if publicly listed. If not found, return null.
-    - website: The official business website URL. This should NOT be a facebook.com URL. If a non-Facebook website is not listed in the 'About' section, return null.
-    - email: The contact email address. This is often hard to find. If it's not explicitly listed, return null. Do not guess or create an email address.
-    - profileStatus: This should always be null for Facebook results.
+    ## SEARCH CRITERIA
+    -   **Industry:** "${industry === 'All' ? 'any' : industry}"
+    -   **Keywords:** "${keywords}"
+    -   **Location:** "${location}"
+    -   **Search Query Hint:** Use a query like "official facebook page for ${keywords} ${industry} in ${location} site:facebook.com"
+    -   **Number of Results:** Return exactly ${numberOfResults} businesses if found.
 
-    Example of a successful response:
-    \`\`\`json
+    ## JSON OUTPUT RULES
+    -   Your entire response MUST be a single JSON object.
+    -   The root object must have one key: "businesses".
+    -   "businesses" must be an array of objects.
+    -   If no results are found, "businesses" MUST be an empty array: \`{ "businesses": [] }\`.
+    -   Do NOT include any text, comments, or markdown (like \`\`\`json\`) outside of the JSON object.
+
+    ## DATA EXTRACTION RULES
+    -   Extract data ONLY from the Google Search result titles and snippets. Do NOT invent data or assume information from the page URL.
+    -   For each business, extract the following fields:
+        -   **id:** A unique generated ID, prefixed with 'fb-'.
+        -   **name:** The business name. This is usually clear from the search result title.
+        -   **address:** The address, ONLY if it appears in the search snippet. Otherwise, null.
+        -   **phone:** The phone number, ONLY if it appears in the search snippet. Otherwise, null.
+        -   **website:** The official website URL (non-Facebook), ONLY if it is mentioned in the search snippet. Otherwise, null.
+        -   **email:** The email address, ONLY if it appears in the search snippet. Otherwise, null.
+        -   **profileStatus:** This must always be null.
+
+    ## EXAMPLE RESPONSE
     {
       "businesses": [
         {
@@ -194,15 +207,7 @@ export const findBusinessesOnFacebook = async (
         }
       ]
     }
-    \`\`\`
-    
-    If you cannot find any relevant businesses, you MUST return a JSON object with an empty array, like this:
-    \`\`\`json
-    {
-      "businesses": []
-    }
-    \`\`\`
-  `;
+    `;
   
   try {
     const response = await ai.models.generateContent({
