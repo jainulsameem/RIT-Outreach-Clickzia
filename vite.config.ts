@@ -1,17 +1,13 @@
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-// FIX: Explicitly import `process` to ensure correct type definitions for `process.cwd()`.
-import process from 'node:process'
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => {
-  // Load env file based on `mode` in the current working directory.
-  const env = loadEnv(mode, process.cwd(), '');
-  return {
-    plugins: [react()],
-    define: {
-      // Expose the API key to the app code, stringified to be a valid JS string
-      'process.env.API_KEY': JSON.stringify(env.VITE_API_KEY)
-    }
+export default defineConfig({
+  plugins: [react()],
+  define: {
+    // This tells Vite to replace any occurrence of `process.env.API_KEY` in the app's code
+    // with the value of the `VITE_API_KEY` environment variable from the build environment (like Vercel).
+    // The `JSON.stringify` is crucial to ensure the key is correctly embedded as a string.
+    'process.env.API_KEY': JSON.stringify(process.env.VITE_API_KEY)
   }
 })
