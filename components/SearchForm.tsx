@@ -1,18 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { SearchIcon, LocationIcon, FacebookIcon } from './icons';
 import { getLocationSuggestions } from '../services/geminiService';
+import type { SearchParams, SearchSource, ProfileStatus } from '../types';
 
-type SearchSource = 'google' | 'facebook';
-type ProfileStatus = 'all' | 'claimed' | 'unclaimed';
-
-interface SearchParams {
-    industry: string;
-    keywords: string;
-    location: string;
-    source: SearchSource;
-    profileStatus: ProfileStatus;
-    numberOfResults: number;
-}
 interface SearchFormProps {
     onSearch: (params: SearchParams) => void;
     isLoading: boolean;
@@ -162,14 +152,14 @@ export const SearchForm: React.FC<SearchFormProps> = ({ onSearch, isLoading }) =
                     </select>
                 </div>
                 <div>
-                    <label htmlFor="numberOfResults" className="block text-sm font-medium text-gray-400 mb-1">Number of Results</label>
+                    <label htmlFor="numberOfResults" className="block text-sm font-medium text-gray-400 mb-1">Results per Page</label>
                     <input
                         type="number"
                         id="numberOfResults"
                         value={numberOfResults}
                         onChange={(e) => setNumberOfResults(parseInt(e.target.value, 10))}
                         min="10"
-                        max="200"
+                        max="100"
                         step="10"
                         className="w-full bg-base-300 border border-gray-600 rounded-md px-3 py-3 text-white placeholder-gray-400 focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
                         disabled={isLoading}

@@ -13,9 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { findBusinesses, findBusinessesOnFacebook } from '../services/geminiService';
 // Fix: Import GroundingChunk to use for state and rendering.
-import type { Business, Settings, CrmContact, LeadStatus, User, CrmFilters, GroundingChunk } from '../types';
-
-const ITEMS_PER_PAGE = 50;
+import type { Business, Settings, CrmContact, LeadStatus, User, CrmFilters, GroundingChunk, SearchParams } from '../types';
 
 export function MainApp() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -32,7 +30,6 @@ export function MainApp() {
   });
 
   const [activeTab, setActiveTab] = useState<'search' | 'crm' | 'users'>('search');
-  const [currentPage, setCurrentPage] = useState(1);
   const [emailedBusinessIds, setEmailedBusinessIds] = useState<string[]>([]);
 
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -48,6 +45,11 @@ export function MainApp() {
     date: { type: 'any' },
     sortOrder: 'newest',
   });
+  
+  // New state for "Load More" functionality
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [lastSearchParams, setLastSearchParams] = useState<SearchParams | null>(null);
+  const [canLoadMore, setCanLoadMore] = useState(false);
 
   const geolocation = useGeolocation();
 
@@ -80,22 +82,57 @@ export function MainApp() {
       return filtered;
   }, [crmContacts, filters, currentUser]);
 
-  const handleSearch = async (params: { industry: string; keywords: string; location: string; source: 'google' | 'facebook'; profileStatus: 'all' | 'claimed' | 'unclaimed'; numberOfResults: number; }) => {
-    setIsLoading(true); setError(null); setBusinesses([]); setActiveTab('search'); setCurrentPage(1);
-    // Fix: Reset grounding chunks on new search.
+  const handleSearch = async (params: SearchParams) => {
+    setIsLoading(true); setError(null); setBusinesses([]); setActiveTab('search');
     setGroundingChunks([]);
+    setLastSearchParams(params);
+    setCanLoadMore(false);
     try {
-      // Fix: Destructure response to get both businesses and grounding chunks.
       const { businesses: results, groundingChunks: chunks } = params.source === 'facebook'
         ? await findBusinessesOnFacebook(params.industry, params.keywords, params.location, params.numberOfResults)
         : await findBusinesses(params.industry, params.keywords, params.location, geolocation.coords, params.profileStatus, params.numberOfResults);
       setBusinesses(results);
-      // Fix: Set grounding chunks in state to be rendered.
       setGroundingChunks(chunks);
+      if (results.length === params.numberOfResults) {
+        setCanLoadMore(true);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred during search.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleLoadMore = async () => {
+    if (!lastSearchParams || isLoadingMore) return;
+    
+    setIsLoadingMore(true);
+    setError(null);
+    const existingBusinessNames = businesses.map(b => b.name);
+
+    try {
+        const { businesses: newResults, groundingChunks: newChunks } = lastSearchParams.source === 'facebook'
+            ? await findBusinessesOnFacebook(lastSearchParams.industry, lastSearchParams.keywords, lastSearchParams.location, lastSearchParams.numberOfResults, existingBusinessNames)
+            : await findBusinesses(lastSearchParams.industry, lastSearchParams.keywords, lastSearchParams.location, geolocation.coords, lastSearchParams.profileStatus, lastSearchParams.numberOfResults, existingBusinessNames);
+        
+        if (newResults.length > 0) {
+            const uniqueNewBusinesses = newResults.filter(newBusiness => !businesses.some(existing => existing.id === newBusiness.id || existing.name === newBusiness.name));
+            setBusinesses(prev => [...prev, ...uniqueNewBusinesses]);
+            if (newChunks) {
+                setGroundingChunks(prev => [...(prev || []), ...newChunks]);
+            }
+        }
+        
+        if (newResults.length < lastSearchParams.numberOfResults) {
+            setCanLoadMore(false);
+        } else {
+            setCanLoadMore(true);
+        }
+    } catch (err) {
+        setError(err instanceof Error ? err.message : 'An unknown error occurred while loading more results.');
+        setCanLoadMore(false);
+    } finally {
+        setIsLoadingMore(false);
     }
   };
   
@@ -183,11 +220,6 @@ export function MainApp() {
 
   const crmContactIds = React.useMemo(() => crmContacts.map(c => c.id), [crmContacts]);
 
-  const totalPages = Math.ceil(businesses.length / ITEMS_PER_PAGE);
-  const currentBusinesses = businesses.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
-  const handleNextPage = () => { if (currentPage < totalPages) setCurrentPage(currentPage + 1); };
-  const handlePrevPage = () => { if (currentPage > 1) setCurrentPage(currentPage - 1); };
-
   return (
     <>
       <header className="bg-base-200 shadow-md">
@@ -213,7 +245,7 @@ export function MainApp() {
       <main className="container mx-auto p-4 md:p-8">
         <div className="max-w-4xl mx-auto">
           <section className="mb-8">
-              <SearchForm onSearch={handleSearch} isLoading={isLoading} />
+              <SearchForm onSearch={handleSearch} isLoading={isLoading || isLoadingMore} />
               {geolocation.error && <p className="text-sm text-yellow-400 mt-2">Could not get your location: {geolocation.error.message}.</p>}
           </section>
 
@@ -242,11 +274,11 @@ export function MainApp() {
                   <div>
                     {businesses.length > 0 && (
                       <div className="flex justify-between items-center mb-4">
-                        <p className="text-gray-400">Found {businesses.length} prospects. Showing page {currentPage} of {totalPages}.</p>
+                        <p className="text-gray-400">Found {businesses.length} prospects.</p>
                         <button onClick={handleDownloadCsv} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition-colors flex items-center"><DownloadIcon /><span className="ml-2">Download CSV</span></button>
                       </div>
                     )}
-                    <BusinessList businesses={currentBusinesses} onComposeEmail={handleComposeEmail} emailedBusinessIds={emailedBusinessIds} onAddToCrm={handleAddToCrm} crmContactIds={crmContactIds} />
+                    <BusinessList businesses={businesses} onComposeEmail={handleComposeEmail} emailedBusinessIds={emailedBusinessIds} onAddToCrm={handleAddToCrm} crmContactIds={crmContactIds} />
                     {/* Fix: Render grounding chunks below the business list */}
                     {groundingChunks && groundingChunks.length > 0 && (
                       <div className="mt-8 p-4 bg-base-200 rounded-lg">
@@ -276,12 +308,18 @@ export function MainApp() {
                         </ul>
                       </div>
                     )}
-                    {totalPages > 1 && (
-                      <div className="flex justify-center items-center mt-6 space-x-4">
-                        <button onClick={handlePrevPage} disabled={currentPage === 1} className="bg-base-200 hover:bg-brand-secondary text-white font-bold py-2 px-4 rounded-md transition-colors disabled:bg-base-300 disabled:text-gray-500 disabled:cursor-not-allowed">&larr; Previous</button>
-                        <span className="text-white font-semibold">Page {currentPage} of {totalPages}</span>
-                        <button onClick={handleNextPage} disabled={currentPage === totalPages} className="bg-base-200 hover:bg-brand-secondary text-white font-bold py-2 px-4 rounded-md transition-colors disabled:bg-base-300 disabled:text-gray-500 disabled:cursor-not-allowed">Next &rarr;</button>
-                      </div>
+                    {canLoadMore && (
+                        <div className="flex justify-center mt-6">
+                            <button
+                                onClick={handleLoadMore}
+                                disabled={isLoadingMore}
+                                className="bg-brand-secondary hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-md transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center"
+                            >
+                                {isLoadingMore ? (
+                                    <><svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Loading More...</>
+                                ) : 'Load More Results'}
+                            </button>
+                        </div>
                     )}
                   </div>
                 )}

@@ -66,7 +66,8 @@ export const findBusinesses = async (
   location: string,
   userCoords: Coords | null,
   profileStatus: 'all' | 'claimed' | 'unclaimed',
-  numberOfResults: number
+  numberOfResults: number,
+  existingBusinessNames: string[] = []
 // Fix: Update function signature to return businesses and grounding chunks.
 ): Promise<{ businesses: Business[], groundingChunks: GroundingChunk[] | undefined }> => {
   const finalPrompt = `
@@ -74,7 +75,10 @@ export const findBusinesses = async (
     The JSON object must have a single key "businesses" which is an array of business objects.
 
     Your top priority is to return the number of businesses requested. Return exactly ${numberOfResults} business profiles if they exist. If you cannot find that many, return as many as you can. Do not arbitrarily limit the result count.
-    If you cannot find any relevant businesses, you MUST return a JSON object with an empty array, like this:
+    
+    ${existingBusinessNames.length > 0 ? `CRITICAL: You MUST exclude the following businesses from your results as they have already been found: ${existingBusinessNames.join(', ')}.` : ''}
+
+    If you cannot find any new relevant businesses, you MUST return a JSON object with an empty array, like this:
     \`\`\`json
     {
       "businesses": []
@@ -157,7 +161,8 @@ export const findBusinessesOnFacebook = async (
   industry: string,
   keywords: string,
   location: string,
-  numberOfResults: number
+  numberOfResults: number,
+  existingBusinessNames: string[] = []
 // Fix: Update function signature to return businesses and grounding chunks.
 ): Promise<{ businesses: Business[], groundingChunks: GroundingChunk[] | undefined }> => {
   const finalPrompt = `
@@ -175,11 +180,13 @@ export const findBusinessesOnFacebook = async (
     -   **Search Query Hint:** Use a query like "official facebook page for ${keywords} ${industry} in ${location} site:facebook.com"
     -   **Number of Results:** Return exactly ${numberOfResults} businesses if found.
 
+    ${existingBusinessNames.length > 0 ? `## EXCLUSION RULE\n- CRITICAL: You MUST exclude the following businesses from your results as they have already been found: ${existingBusinessNames.join(', ')}.` : ''}
+
     ## JSON OUTPUT RULES
     -   Your entire response MUST be a single JSON object.
     -   The root object must have one key: "businesses".
     -   "businesses" must be an array of objects.
-    -   If no results are found, "businesses" MUST be an empty array: \`{ "businesses": [] }\`.
+    -   If no *new* results are found, "businesses" MUST be an empty array: \`{ "businesses": [] }\`.
     -   Do NOT include any text, comments, or markdown (like \`\`\`json\`) outside of the JSON object.
 
     ## DATA EXTRACTION RULES
@@ -211,6 +218,7 @@ export const findBusinessesOnFacebook = async (
   
   try {
     const response = await ai.models.generateContent({
+      // Fix: Corrected model name from "gemini-2.flash" to "gemini-2.5-flash".
       model: "gemini-2.5-flash",
       contents: finalPrompt,
       config: {

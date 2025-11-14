@@ -85,3 +85,16 @@ export interface CrmFilters {
   };
   sortOrder: 'newest' | 'oldest';
 }
+
+export type SearchSource = 'google' | 'facebook';
+export type ProfileStatus = 'all' | 'claimed' | 'unclaimed';
+
+// New: Shared SearchParams type
+export interface SearchParams {
+  industry: string;
+  keywords: string;
+  location: string;
+  source: SearchSource;
+  profileStatus: ProfileStatus;
+  numberOfResults: number;
+}
