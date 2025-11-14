@@ -27,6 +27,7 @@ export interface Business {
   source?: 'google' | 'facebook';
 }
 
+// Fix: Update GroundingChunk to support both 'maps' and 'web' source types.
 export interface GroundingChunk {
   maps?: {
     uri: string;
@@ -38,6 +39,10 @@ export interface GroundingChunk {
         snippet: string;
       }[];
     }[];
+  };
+  web?: {
+    uri: string;
+    title: string;
   };
 }
 

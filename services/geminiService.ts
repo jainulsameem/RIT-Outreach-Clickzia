@@ -1,13 +1,16 @@
 import { GoogleGenAI } from "@google/genai";
-import type { Business, Coords } from '../types';
+// Fix: Import GroundingChunk type to use in function signatures.
+import type { Business, Coords, GroundingChunk } from '../types';
 
-// Per coding guidelines, the API key must be obtained exclusively from process.env.API_KEY.
-// This variable is assumed to be pre-configured and accessible in the execution context.
+// Per coding guidelines, the API key must be obtained exclusively from the environment.
+// Vite is configured in `vite.config.ts` to define `process.env.API_KEY`.
 const apiKey = process.env.API_KEY;
 if (!apiKey) {
-  throw new Error("API_KEY environment variable not set");
+  // This error will be thrown during app initialization if the key is missing.
+  throw new Error("API_KEY environment variable not set. Please check your deployment configuration.");
 }
-const getAi = () => new GoogleGenAI({ apiKey });
+// Fix: Use a single, shared instance of GoogleGenAI for performance and consistency.
+const ai = new GoogleGenAI({ apiKey });
 
 const parseJsonResponse = (text: string): any => {
     // Attempt to extract JSON from markdown code block first
@@ -64,9 +67,8 @@ export const findBusinesses = async (
   userCoords: Coords | null,
   profileStatus: 'all' | 'claimed' | 'unclaimed',
   numberOfResults: number
-): Promise<Business[]> => {
-  const ai = getAi();
-
+// Fix: Update function signature to return businesses and grounding chunks.
+): Promise<{ businesses: Business[], groundingChunks: GroundingChunk[] | undefined }> => {
   const finalPrompt = `
     Your primary and ONLY task is to return a valid JSON object. Do not add any commentary, explanation, or any text before or after the JSON object.
     The JSON object must have a single key "businesses" which is an array of business objects.
@@ -136,10 +138,14 @@ export const findBusinesses = async (
     
     const data = parseJsonResponse(response.text);
 
-    if (data && data.businesses && Array.isArray(data.businesses)) {
-        return data.businesses.map((b: Omit<Business, 'source'>) => ({ ...b, source: 'google' }));
-    }
-    return [];
+    const businesses = (data && data.businesses && Array.isArray(data.businesses))
+      ? data.businesses.map((b: Omit<Business, 'source'>) => ({ ...b, source: 'google' }))
+      : [];
+    
+    // Fix: Extract grounding chunks from the response as per Gemini API guidelines.
+    const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+
+    return { businesses, groundingChunks };
 
   } catch (error) {
     console.error("Error finding businesses via Google Maps:", error);
@@ -152,9 +158,8 @@ export const findBusinessesOnFacebook = async (
   keywords: string,
   location: string,
   numberOfResults: number
-): Promise<Business[]> => {
-  const ai = getAi();
-  
+// Fix: Update function signature to return businesses and grounding chunks.
+): Promise<{ businesses: Business[], groundingChunks: GroundingChunk[] | undefined }> => {
   const finalPrompt = `
     Your primary and ONLY task is to return a valid JSON object. Do not add any commentary, explanation, or any text before or after the JSON object.
     The JSON object must have a single key "businesses" which is an array of business objects.
@@ -210,10 +215,14 @@ export const findBusinessesOnFacebook = async (
     
     const data = parseJsonResponse(response.text);
     
-    if (data && data.businesses && Array.isArray(data.businesses)) {
-        return data.businesses.map((b: Omit<Business, 'source'>) => ({ ...b, source: 'facebook' }));
-    }
-    return [];
+    const businesses = (data && data.businesses && Array.isArray(data.businesses))
+      ? data.businesses.map((b: Omit<Business, 'source'>) => ({ ...b, source: 'facebook' }))
+      : [];
+
+    // Fix: Extract grounding chunks from the response as per Gemini API guidelines.
+    const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+
+    return { businesses, groundingChunks };
 
   } catch (error) {
     console.error("Error finding businesses via Facebook:", error);
@@ -227,7 +236,6 @@ export const generateColdEmail = async (
   fromName: string,
   outreachTopic: string
 ): Promise<string> => {
-    const ai = getAi();
     const prompt = `
       Write a professional and concise cold outreach email.
       The email is from: ${fromName}.
@@ -254,7 +262,6 @@ export const generateColdEmail = async (
 
 export const getLocationSuggestions = async (query: string): Promise<string[]> => {
     if (query.trim().length < 3) return [];
-    const ai = getAi();
     
     const prompt = `
         Based on the search query "${query}", provide up to 5 relevant location name suggestions.

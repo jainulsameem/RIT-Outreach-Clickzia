@@ -12,12 +12,15 @@ import { useGeolocation } from '../hooks/useGeolocation';
 import { useAuth } from '../context/AuthContext';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { findBusinesses, findBusinessesOnFacebook } from '../services/geminiService';
-import type { Business, Settings, CrmContact, LeadStatus, User, CrmFilters } from '../types';
+// Fix: Import GroundingChunk to use for state and rendering.
+import type { Business, Settings, CrmContact, LeadStatus, User, CrmFilters, GroundingChunk } from '../types';
 
 const ITEMS_PER_PAGE = 50;
 
 export function MainApp() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
+  // Fix: Add state to store and render grounding chunks (sources).
+  const [groundingChunks, setGroundingChunks] = useState<GroundingChunk[] | undefined>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -79,11 +82,16 @@ export function MainApp() {
 
   const handleSearch = async (params: { industry: string; keywords: string; location: string; source: 'google' | 'facebook'; profileStatus: 'all' | 'claimed' | 'unclaimed'; numberOfResults: number; }) => {
     setIsLoading(true); setError(null); setBusinesses([]); setActiveTab('search'); setCurrentPage(1);
+    // Fix: Reset grounding chunks on new search.
+    setGroundingChunks([]);
     try {
-      const results = params.source === 'facebook'
+      // Fix: Destructure response to get both businesses and grounding chunks.
+      const { businesses: results, groundingChunks: chunks } = params.source === 'facebook'
         ? await findBusinessesOnFacebook(params.industry, params.keywords, params.location, params.numberOfResults)
         : await findBusinesses(params.industry, params.keywords, params.location, geolocation.coords, params.profileStatus, params.numberOfResults);
       setBusinesses(results);
+      // Fix: Set grounding chunks in state to be rendered.
+      setGroundingChunks(chunks);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred during search.');
     } finally {
@@ -239,6 +247,35 @@ export function MainApp() {
                       </div>
                     )}
                     <BusinessList businesses={currentBusinesses} onComposeEmail={handleComposeEmail} emailedBusinessIds={emailedBusinessIds} onAddToCrm={handleAddToCrm} crmContactIds={crmContactIds} />
+                    {/* Fix: Render grounding chunks below the business list */}
+                    {groundingChunks && groundingChunks.length > 0 && (
+                      <div className="mt-8 p-4 bg-base-200 rounded-lg">
+                        <h4 className="text-lg font-semibold text-white mb-3">Data Sources</h4>
+                        <ul className="space-y-2">
+                          {groundingChunks.map((chunk, index) => {
+                            if (chunk.web) {
+                              return <li key={index} className="text-sm text-gray-400"><a href={chunk.web.uri} target="_blank" rel="noopener noreferrer" className="text-brand-light hover:underline">{chunk.web.title || chunk.web.uri}</a></li>;
+                            }
+                            if (chunk.maps) {
+                              return (
+                                <li key={index} className="text-sm text-gray-400">
+                                  <a href={chunk.maps.uri} target="_blank" rel="noopener noreferrer" className="text-brand-light hover:underline">{chunk.maps.title || chunk.maps.uri}</a>
+                                  {chunk.maps.placeAnswerSources?.map(source => 
+                                    source.reviewSnippets.map((snippet, sIndex) => (
+                                      <div key={sIndex} className="pl-4 mt-1 border-l-2 border-gray-700">
+                                        <blockquote className="italic text-gray-500">"{snippet.snippet}"</blockquote>
+                                        <a href={snippet.uri} target="_blank" rel="noopener noreferrer" className="text-brand-light hover:underline text-xs">{snippet.title}</a>
+                                      </div>
+                                    ))
+                                  )}
+                                </li>
+                              );
+                            }
+                            return null;
+                          })}
+                        </ul>
+                      </div>
+                    )}
                     {totalPages > 1 && (
                       <div className="flex justify-center items-center mt-6 space-x-4">
                         <button onClick={handlePrevPage} disabled={currentPage === 1} className="bg-base-200 hover:bg-brand-secondary text-white font-bold py-2 px-4 rounded-md transition-colors disabled:bg-base-300 disabled:text-gray-500 disabled:cursor-not-allowed">&larr; Previous</button>
@@ -250,7 +287,7 @@ export function MainApp() {
                 )}
                 {activeTab === 'crm' && <CrmList contacts={filteredAndSortedContacts} onComposeEmail={handleComposeEmail} emailedBusinessIds={emailedBusinessIds} onRemoveFromCrm={handleRemoveFromCrm} onUpdateStatus={handleUpdateStatus} onAddNote={handleAddNote} users={users} currentUser={currentUser} onAssignContact={handleAssignContact} />}
                 {activeTab === 'users' && currentUser?.role === 'admin' && (
-                  <UserManagement users={users} crmContacts={crmContacts} onAddUser={() => { setEditingUser(null); setIsUserModalOpen(true); }} onEditUser={(user) => { setEditingUser(user); setIsUserModalOpen(true); }} onRemoveUser={handleRemoveUser} />
+                  <UserManagement crmContacts={crmContacts} onAddUser={() => { setEditingUser(null); setIsUserModalOpen(true); }} onEditUser={(user) => { setEditingUser(user); setIsUserModalOpen(true); }} onRemoveUser={handleRemoveUser} />
                 )}
               </>
             )}
