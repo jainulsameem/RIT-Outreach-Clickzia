@@ -12,18 +12,28 @@ const getAi = () => new GoogleGenAI({ apiKey });
 const parseJsonResponse = (text: string): any => {
     // Attempt to extract JSON from markdown code block first
     const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
-    let jsonString = jsonMatch ? jsonMatch[1] : text;
+    let jsonString = text;
     
-    // Fallback for cases where the model doesn't use markdown
-    if (!jsonString.startsWith('{') && jsonString.indexOf('{') > -1) {
-      jsonString = jsonString.substring(jsonString.indexOf('{'), jsonString.lastIndexOf('}') + 1);
+    if (jsonMatch && jsonMatch[1]) {
+        jsonString = jsonMatch[1];
+    } else {
+        // Fallback: find the first '{' and the last '}'
+        const firstBrace = text.indexOf('{');
+        const lastBrace = text.lastIndexOf('}');
+        
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+            jsonString = text.substring(firstBrace, lastBrace + 1);
+        }
     }
     
-    if (!jsonString) {
-        throw new Error("No JSON object found in the response.");
+    try {
+        return JSON.parse(jsonString);
+    } catch (error) {
+        console.error("Failed to parse JSON string. Content was:", jsonString);
+        console.error("Original model response was:", text);
+        // This error will be caught by the calling function, which shows the user-facing error.
+        throw new Error("The model returned data in an unexpected format.");
     }
-
-    return JSON.parse(jsonString);
 }
 
 export const findBusinesses = async (
@@ -37,7 +47,16 @@ export const findBusinesses = async (
   const ai = getAi();
 
   const finalPrompt = `
+    Your primary and ONLY task is to return a valid JSON object. Do not add any commentary, explanation, or any text before or after the JSON object.
+    The JSON object must have a single key "businesses" which is an array of business objects.
+
     Your top priority is to return the number of businesses requested. Return exactly ${numberOfResults} business profiles if they exist. If you cannot find that many, return as many as you can. Do not arbitrarily limit the result count.
+    If you cannot find any relevant businesses, you MUST return a JSON object with an empty array, like this:
+    \`\`\`json
+    {
+      "businesses": []
+    }
+    \`\`\`
 
     Find local businesses based on the following criteria:
     - Industry: ${industry === 'All' ? 'Any' : industry}
@@ -54,7 +73,8 @@ export const findBusinesses = async (
     - A contact email address (if you can find one, otherwise leave it null)
     - Profile Status (whether its Google Business Profile is 'claimed' or 'unclaimed'. If unknown, return 'unknown')
     
-    Return the information as a valid JSON object with a single key "businesses" which is an array of business objects. For example:
+    Example of a successful response:
+    \`\`\`json
     {
       "businesses": [
         {
@@ -68,6 +88,7 @@ export const findBusinesses = async (
         }
       ]
     }
+    \`\`\`
   `;
 
   const config: any = {
