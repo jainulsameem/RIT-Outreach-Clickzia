@@ -1,9 +1,13 @@
 import { GoogleGenAI } from "@google/genai";
 import type { Business, Coords } from '../types';
 
-// FIX: Per coding guidelines, API key must come from process.env.API_KEY and be used directly.
-// This also resolves the TypeScript error on `import.meta.env`.
-const getAi = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Per coding guidelines, the API key must be obtained exclusively from process.env.API_KEY.
+// This variable is assumed to be pre-configured and accessible in the execution context.
+const apiKey = process.env.API_KEY;
+if (!apiKey) {
+  throw new Error("API_KEY environment variable not set");
+}
+const getAi = () => new GoogleGenAI({ apiKey });
 
 const parseJsonResponse = (text: string): any => {
     // Attempt to extract JSON from markdown code block first
