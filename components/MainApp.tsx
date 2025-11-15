@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { SearchForm } from './SearchForm';
 import { BusinessList } from './BusinessList';
@@ -293,7 +294,7 @@ export function MainApp() {
                                 <li key={index} className="text-sm text-gray-400">
                                   <a href={chunk.maps.uri} target="_blank" rel="noopener noreferrer" className="text-brand-light hover:underline">{chunk.maps.title || chunk.maps.uri}</a>
                                   {chunk.maps.placeAnswerSources?.map(source => 
-                                    source.reviewSnippets.map((snippet, sIndex) => (
+                                    source.reviewSnippets?.map((snippet, sIndex) => (
                                       <div key={sIndex} className="pl-4 mt-1 border-l-2 border-gray-700">
                                         <blockquote className="italic text-gray-500">"{snippet.snippet}"</blockquote>
                                         <a href={snippet.uri} target="_blank" rel="noopener noreferrer" className="text-brand-light hover:underline text-xs">{snippet.title}</a>

@@ -1,3 +1,4 @@
+
 export interface Coords {
   latitude: number;
   longitude: number;
@@ -30,19 +31,19 @@ export interface Business {
 // Fix: Update GroundingChunk to support both 'maps' and 'web' source types.
 export interface GroundingChunk {
   maps?: {
-    uri: string;
-    title: string;
+    uri?: string;
+    title?: string;
     placeAnswerSources?: {
-      reviewSnippets: {
-        uri: string;
-        title: string;
-        snippet: string;
+      reviewSnippets?: {
+        uri?: string;
+        title?: string;
+        snippet?: string;
       }[];
     }[];
   };
   web?: {
-    uri: string;
-    title: string;
+    uri?: string;
+    title?: string;
   };
 }
 

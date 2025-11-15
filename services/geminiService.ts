@@ -8,7 +8,7 @@ if (!apiKey) {
 const ai = new GoogleGenAI({ apiKey });
 
 const parseJsonResponse = (text: string): any => {
-    if (!text) return {}; // Fix: Handle empty text case
+    if (!text) return {};
 
     // Attempt to extract JSON from markdown code block first
     const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
@@ -52,6 +52,8 @@ const parseJsonResponse = (text: string): any => {
     } catch (error) {
         console.error("Failed to parse JSON string. Content was:", `>>>${jsonString}<<<`);
         console.error("Original model response was:", `>>>${text}<<<`);
+        // Return empty object or array instead of throwing to allow partial results in loops? 
+        // Better to throw so we know it failed, but in a loop we catch it.
         throw new Error("The model returned data in an unexpected format.");
     }
 }
@@ -70,62 +72,56 @@ export const findBusinesses = async (
   let allGroundingChunks: GroundingChunk[] = [];
   let currentExclusionList = [...existingBusinessNames];
   let loopCount = 0;
-  const MAX_LOOPS = 10; // Limit iterations to prevent infinite loops (supports up to ~200 results)
+  const MAX_LOOPS = 15; // Increased loops to better support deep pagination
 
   while (allBusinesses.length < numberOfResults && loopCount < MAX_LOOPS) {
     const remainingNeeded = numberOfResults - allBusinesses.length;
-    // We limit the batch size to 20 because tool calls (Maps) typically return max 20 results per query.
-    // Requesting more often leads to duplicates or hallucinations.
+    // Use batch size of 10-20. 
     const batchSize = Math.min(remainingNeeded, 20);
-    
-    // If we only need a few more, we still ask for at least 5 to ensure we get something back after filtering.
+    // We request a bit more to account for duplicates we filter out
     const requestCount = Math.max(5, batchSize);
 
     const finalPrompt = `
-      Your primary and ONLY task is to return a valid JSON object. Do not add any commentary.
-      The JSON object must have a single key "businesses" which is an array of business objects.
-
-      Your goal is to find ${requestCount} NEW business profiles that match the criteria.
-
-      ${currentExclusionList.length > 0 ? `CRITICAL: You MUST exclude the following businesses from your results as they have already been found: ${JSON.stringify(currentExclusionList)}.` : ''}
-
-      If you cannot find any NEW relevant businesses, return a JSON object with an empty array.
-
-      Find local businesses based on:
+      Your goal is to find ${requestCount} NEW and UNIQUE business profiles that match the criteria.
+      
+      CRITICAL: You must return a valid JSON object. No markdown outside the JSON.
+      
+      Already Found / Excluded Businesses:
+      ${JSON.stringify(currentExclusionList)}
+      
+      DO NOT include any of the above businesses in your response.
+      
+      Search Criteria:
       - Industry: ${industry === 'All' ? 'Any' : industry}
       - Keywords: ${keywords}
       - Location: ${location}
-      ${profileStatus !== 'all' ? `- Profile Status: Only find businesses with '${profileStatus}' Google Business Profiles.` : ''}
+      ${profileStatus !== 'all' ? `- Profile Status: Only '${profileStatus}' profiles.` : ''}
 
-      For each business, find the following information using Google Maps data:
-      - A unique ID (generate this)
-      - Business Name
-      - Full Address
-      - Phone Number (E.164 format)
-      - Website URL
-      - Email (if available, else null)
-      - Profile Status ('claimed', 'unclaimed', or 'unknown')
-      
-      Example JSON output:
-      \`\`\`json
+      Task:
+      1. Use Google Maps to find businesses in '${location}'.
+      2. If you are finding duplicates from the exclusion list, try varying your search query (e.g., search in specific neighborhoods, streets, or use related keywords) to find NEW businesses on "next pages" of results.
+      3. Use Google Search to find the *email address* and *website* for each business if not found on Maps.
+      4. Compile the data into the JSON format.
+
+      Output JSON Format:
       {
         "businesses": [
           {
-            "id": "1",
-            "name": "Example Business",
-            "address": "123 Main St",
-            "phone": "+15551234567",
-            "website": "http://example.com",
-            "email": "contact@example.com",
-            "profileStatus": "claimed"
+            "id": "string (unique)",
+            "name": "string",
+            "address": "string",
+            "phone": "string",
+            "website": "string",
+            "email": "string (or null)",
+            "profileStatus": "claimed | unclaimed | unknown"
           }
         ]
       }
-      \`\`\`
     `;
 
     const config: any = {
-      tools: [{ googleMaps: {} }],
+      // Enable both Maps and Search to get comprehensive data (emails) and better coverage
+      tools: [{ googleMaps: {} }, { googleSearch: {} }],
     };
 
     if (userCoords) {
@@ -146,46 +142,49 @@ export const findBusinesses = async (
         config,
       });
       
-      // Fix: Handle potentially undefined response.text
       const data = parseJsonResponse(response.text || "");
 
-      // Process new businesses
       let newBusinesses = (data && data.businesses && Array.isArray(data.businesses))
-        ? data.businesses.map((b: Omit<Business, 'source'>) => ({ 
+        ? data.businesses.map((b: any) => ({ 
             ...b, 
             source: 'google',
-            // Ensure ID is unique for React lists
             id: `gm-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` 
           }))
         : [];
       
-      // Strict client-side filtering to ensure no duplicates from the exclusion list
+      // Filter out duplicates based on name (fuzzy match could be better but exact name is safe for now)
       newBusinesses = newBusinesses.filter((b: Business) => !currentExclusionList.includes(b.name));
 
       if (newBusinesses.length === 0) {
-        // If the model returned 0 new businesses, we've likely exhausted the search results.
-        break;
+        // If we got 0 results, the model might be stuck. 
+        // We can try one more time with a "Force Variation" hint in next loop, or just break.
+        // For now, let's count consecutive failures? 
+        // Simpler: just break if truly 0.
+        if (loopCount > 0) { // allow one empty retry potentially, but usually break
+             break;
+        }
       }
 
       allBusinesses = [...allBusinesses, ...newBusinesses];
       currentExclusionList = [...currentExclusionList, ...newBusinesses.map((b: Business) => b.name)];
       
-      // Accumulate grounding chunks
       const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
       if (chunks) {
         allGroundingChunks = [...allGroundingChunks, ...chunks];
       }
+      
+      // Small delay to be nice to API limits if needed, but await is usually enough.
 
     } catch (error) {
       console.error(`Error in search iteration ${loopCount}:`, error);
-      // If an iteration fails, stop and return what we have so far
+      // If we have some businesses, return them. If early error, throw? 
+      // Best to just break and return what we have.
       break;
     }
 
     loopCount++;
   }
 
-  // Return only the requested number, though we might have fetched slightly more
   return { businesses: allBusinesses.slice(0, numberOfResults), groundingChunks: allGroundingChunks };
 };
 
@@ -201,7 +200,7 @@ export const findBusinessesOnFacebook = async (
   let allGroundingChunks: GroundingChunk[] = [];
   let currentExclusionList = [...existingBusinessNames];
   let loopCount = 0;
-  const MAX_LOOPS = 10;
+  const MAX_LOOPS = 15;
 
   while (allBusinesses.length < numberOfResults && loopCount < MAX_LOOPS) {
     const remainingNeeded = numberOfResults - allBusinesses.length;
@@ -209,44 +208,33 @@ export const findBusinessesOnFacebook = async (
     const requestCount = Math.max(5, batchSize);
 
     const finalPrompt = `
-      Your task is to function as a data extraction and formatting API. You will receive a request and you MUST respond with only a valid JSON object.
+      Task: Find ${requestCount} NEW business profiles on Facebook.
       
-      ## TASK
-      1.  Perform a Google Search to find public Facebook Business Pages.
-      2.  Extract information about each business.
-      3.  Return ${requestCount} NEW businesses.
+      Search:
+      - Industry: ${industry === 'All' ? 'any' : industry}
+      - Keywords: ${keywords}
+      - Location: ${location}
+      - Query: "facebook page ${keywords} ${industry} ${location}" or similar.
 
-      ## SEARCH CRITERIA
-      -   **Industry:** "${industry === 'All' ? 'any' : industry}"
-      -   **Keywords:** "${keywords}"
-      -   **Location:** "${location}"
-      -   **Search Query Hint:** Use a query like "official facebook page for ${keywords} ${industry} in ${location} site:facebook.com"
+      Exclusions:
+      ${JSON.stringify(currentExclusionList)}
+      
+      Instructions:
+      1. Find public Facebook business pages.
+      2. Extract Business Name, Address, Phone, Website, and Email.
+      3. Prioritize finding an EMAIL address from the page snippets.
+      4. Return valid JSON.
 
-      ${currentExclusionList.length > 0 ? `## EXCLUSION RULE\n- CRITICAL: You MUST exclude the following businesses: ${JSON.stringify(currentExclusionList)}.` : ''}
-
-      ## JSON OUTPUT RULES
-      -   Root object key: "businesses" (array).
-      -   If no *new* results found, return empty array.
-
-      ## DATA EXTRACTION
-      -   **id:** Generate unique ID.
-      -   **name:** Business name.
-      -   **address:** Address from snippet (or null).
-      -   **phone:** Phone from snippet (or null).
-      -   **website:** Official website from snippet (or null).
-      -   **email:** Email from snippet (or null).
-      -   **profileStatus:** null.
-
-      ## EXAMPLE RESPONSE
+      Output:
       {
         "businesses": [
           {
-            "id": "fb-12345",
-            "name": "Example Restaurant",
-            "address": "456 Oak Ave",
-            "phone": "+15559876543",
-            "website": "http://example.com",
-            "email": null,
+            "id": "fb-...",
+            "name": "...",
+            "address": "...",
+            "phone": "...",
+            "website": "...",
+            "email": "...",
             "profileStatus": null
           }
         ]
@@ -262,11 +250,10 @@ export const findBusinessesOnFacebook = async (
         },
       });
       
-      // Fix: Handle potentially undefined response.text
       const data = parseJsonResponse(response.text || "");
       
       let newBusinesses = (data && data.businesses && Array.isArray(data.businesses))
-        ? data.businesses.map((b: Omit<Business, 'source'>) => ({ 
+        ? data.businesses.map((b: any) => ({ 
             ...b, 
             source: 'facebook',
             id: `fb-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
@@ -319,7 +306,6 @@ export const generateColdEmail = async (
           model: 'gemini-2.5-flash',
           contents: prompt,
         });
-        // Fix: Handle potentially undefined response.text
         return response.text || "";
     } catch (error) {
         console.error("Error generating email:", error);
@@ -346,7 +332,6 @@ export const getLocationSuggestions = async (query: string): Promise<string[]> =
             },
         });
 
-        // Fix: Handle potentially undefined response.text
         const data = parseJsonResponse(response.text || "");
         if (data && data.suggestions && Array.isArray(data.suggestions)) {
             return data.suggestions;
@@ -355,6 +340,6 @@ export const getLocationSuggestions = async (query: string): Promise<string[]> =
 
     } catch (error) {
         console.error("Error fetching location suggestions:", error);
-        return []; // Return empty on error to prevent crashes
+        return []; 
     }
 };
