@@ -1,11 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import type { Business, Coords, GroundingChunk } from '../types';
 
-const apiKey = process.env.API_KEY;
-if (!apiKey) {
-  throw new Error("API_KEY environment variable not set. Please check your deployment configuration.");
-}
-const ai = new GoogleGenAI({ apiKey });
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const parseJsonResponse = (text: string): any => {
     if (!text) return {};
@@ -51,10 +47,8 @@ const parseJsonResponse = (text: string): any => {
         return JSON.parse(jsonString.trim());
     } catch (error) {
         console.error("Failed to parse JSON string. Content was:", `>>>${jsonString}<<<`);
-        console.error("Original model response was:", `>>>${text}<<<`);
-        // Return empty object or array instead of throwing to allow partial results in loops? 
-        // Better to throw so we know it failed, but in a loop we catch it.
-        throw new Error("The model returned data in an unexpected format.");
+        // Return empty object instead of throwing to prevent crashing the whole loop
+        return { businesses: [] };
     }
 }
 
@@ -72,36 +66,43 @@ export const findBusinesses = async (
   let allGroundingChunks: GroundingChunk[] = [];
   let currentExclusionList = [...existingBusinessNames];
   let loopCount = 0;
-  const MAX_LOOPS = 15; // Increased loops to better support deep pagination
+  const MAX_LOOPS = 15; 
 
   while (allBusinesses.length < numberOfResults && loopCount < MAX_LOOPS) {
     const remainingNeeded = numberOfResults - allBusinesses.length;
-    // Use batch size of 10-20. 
+    // Keep batch size manageable for the model
     const batchSize = Math.min(remainingNeeded, 20);
-    // We request a bit more to account for duplicates we filter out
     const requestCount = Math.max(5, batchSize);
 
+    // Dynamic instruction to force the model to look "deeper" in subsequent loops
+    const variationInstruction = loopCount === 0 
+        ? `Search broadly in '${location}'.` 
+        : `CRITICAL PAGINATION STRATEGY: You have already found the top results. To find ${requestCount} NEW businesses, you MUST vary your search query. Search in specific **neighborhoods**, **streets**, or **adjacent areas** within '${location}'. Do NOT repeat the general search.`;
+
     const finalPrompt = `
-      Your goal is to find ${requestCount} NEW and UNIQUE business profiles that match the criteria.
+      Task: Find ${requestCount} NEW and UNIQUE business profiles.
       
-      CRITICAL: You must return a valid JSON object. No markdown outside the JSON.
-      
-      Already Found / Excluded Businesses:
+      CONTEXT:
+      We are compiling a comprehensive list.
+      ALREADY FOUND / EXCLUDED (Do NOT return these):
       ${JSON.stringify(currentExclusionList)}
       
-      DO NOT include any of the above businesses in your response.
-      
-      Search Criteria:
+      SEARCH PARAMETERS:
       - Industry: ${industry === 'All' ? 'Any' : industry}
       - Keywords: ${keywords}
       - Location: ${location}
       ${profileStatus !== 'all' ? `- Profile Status: Only '${profileStatus}' profiles.` : ''}
 
-      Task:
-      1. Use Google Maps to find businesses in '${location}'.
-      2. If you are finding duplicates from the exclusion list, try varying your search query (e.g., search in specific neighborhoods, streets, or use related keywords) to find NEW businesses on "next pages" of results.
-      3. Use Google Search to find the *email address* and *website* for each business if not found on Maps.
-      4. Compile the data into the JSON format.
+      INSTRUCTIONS:
+      1. **Smart Search**: ${variationInstruction}
+      2. **Data Extraction (CRITICAL)**:
+         - **Website**: You MUST prioritize extracting the official 'website' field from the Google Maps result. This is the business's own URL (e.g., 'www.pizzaplace.com'). 
+           - If the Maps result has a website, USE IT.
+           - If Maps has NO website, use Google Search to find it: query "${keywords} ${location} official website".
+           - Do NOT return a 'google.com/maps/...' link as the website.
+         - **Email**: Google Maps rarely lists emails. You MUST use Google Search to find an email address. Query: "${keywords} ${location} email contact" or "contact us".
+      3. **Profile Status**: If using Google Maps, check if the business is claimed.
+      4. **Format**: Return a valid JSON object.
 
       Output JSON Format:
       {
@@ -111,7 +112,7 @@ export const findBusinesses = async (
             "name": "string",
             "address": "string",
             "phone": "string",
-            "website": "string",
+            "website": "string (The business's own URL)",
             "email": "string (or null)",
             "profileStatus": "claimed | unclaimed | unknown"
           }
@@ -120,7 +121,7 @@ export const findBusinesses = async (
     `;
 
     const config: any = {
-      // Enable both Maps and Search to get comprehensive data (emails) and better coverage
+      // Enable both Maps and Search for maximum data coverage
       tools: [{ googleMaps: {} }, { googleSearch: {} }],
     };
 
@@ -152,17 +153,13 @@ export const findBusinesses = async (
           }))
         : [];
       
-      // Filter out duplicates based on name (fuzzy match could be better but exact name is safe for now)
+      // Strict filtering of duplicates
       newBusinesses = newBusinesses.filter((b: Business) => !currentExclusionList.includes(b.name));
 
       if (newBusinesses.length === 0) {
-        // If we got 0 results, the model might be stuck. 
-        // We can try one more time with a "Force Variation" hint in next loop, or just break.
-        // For now, let's count consecutive failures? 
-        // Simpler: just break if truly 0.
-        if (loopCount > 0) { // allow one empty retry potentially, but usually break
-             break;
-        }
+        // If we found nothing new, and we've tried a few times, maybe stop.
+        // But often the model just needs a nudge. 
+        if (loopCount > 2 && newBusinesses.length === 0) break;
       }
 
       allBusinesses = [...allBusinesses, ...newBusinesses];
@@ -170,15 +167,11 @@ export const findBusinesses = async (
       
       const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
       if (chunks) {
-        allGroundingChunks = [...allGroundingChunks, ...chunks];
+        allGroundingChunks = [...allGroundingChunks, ...(chunks as unknown as GroundingChunk[])];
       }
-      
-      // Small delay to be nice to API limits if needed, but await is usually enough.
 
     } catch (error) {
       console.error(`Error in search iteration ${loopCount}:`, error);
-      // If we have some businesses, return them. If early error, throw? 
-      // Best to just break and return what we have.
       break;
     }
 
@@ -207,22 +200,25 @@ export const findBusinessesOnFacebook = async (
     const batchSize = Math.min(remainingNeeded, 20);
     const requestCount = Math.max(5, batchSize);
 
+    const variationInstruction = loopCount === 0
+      ? `Find public Facebook business pages in '${location}'.`
+      : `You have already found the top results. Vary your search query to find NEW results (e.g. different keywords or specific sub-locations in '${location}').`;
+
     const finalPrompt = `
       Task: Find ${requestCount} NEW business profiles on Facebook.
+      
+      ALREADY FOUND / EXCLUDED:
+      ${JSON.stringify(currentExclusionList)}
       
       Search:
       - Industry: ${industry === 'All' ? 'any' : industry}
       - Keywords: ${keywords}
       - Location: ${location}
-      - Query: "facebook page ${keywords} ${industry} ${location}" or similar.
-
-      Exclusions:
-      ${JSON.stringify(currentExclusionList)}
       
       Instructions:
-      1. Find public Facebook business pages.
+      1. ${variationInstruction}
       2. Extract Business Name, Address, Phone, Website, and Email.
-      3. Prioritize finding an EMAIL address from the page snippets.
+      3. **Email Priority**: Specifically look for the 'About' section or 'Contact' details on the Facebook page snippets to find an EMAIL address.
       4. Return valid JSON.
 
       Output:
@@ -262,14 +258,14 @@ export const findBusinessesOnFacebook = async (
       
       newBusinesses = newBusinesses.filter((b: Business) => !currentExclusionList.includes(b.name));
 
-      if (newBusinesses.length === 0) break;
+      if (newBusinesses.length === 0 && loopCount > 2) break;
 
       allBusinesses = [...allBusinesses, ...newBusinesses];
       currentExclusionList = [...currentExclusionList, ...newBusinesses.map((b: Business) => b.name)];
 
       const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
       if (chunks) {
-        allGroundingChunks = [...allGroundingChunks, ...chunks];
+        allGroundingChunks = [...allGroundingChunks, ...(chunks as unknown as GroundingChunk[])];
       }
 
     } catch (error) {

@@ -11,22 +11,20 @@ import { AddEditUserModal } from './AddEditUserModal';
 import { SettingsIcon, UserIcon, DownloadIcon } from './icons';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { useAuth } from '../context/AuthContext';
-import { useLocalStorage } from '../hooks/useLocalStorage';
 import { findBusinesses, findBusinessesOnFacebook } from '../services/geminiService';
-// Fix: Import GroundingChunk to use for state and rendering.
+import { supabase } from '../services/supabaseClient';
 import type { Business, Settings, CrmContact, LeadStatus, User, CrmFilters, GroundingChunk, SearchParams } from '../types';
 
 export function MainApp() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
-  // Fix: Add state to store and render grounding chunks (sources).
   const [groundingChunks, setGroundingChunks] = useState<GroundingChunk[] | undefined>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   const { currentUser, users, updateUsersAndPersist: setUsers, logout } = useAuth();
 
-  const [crmContacts, setCrmContacts] = useLocalStorage<CrmContact[]>('crmContacts', []);
-  const [settings, setSettings] = useLocalStorage<Settings>('outreachSettings', {
+  const [crmContacts, setCrmContacts] = useState<CrmContact[]>([]);
+  const [settings, setSettings] = useState<Settings>({
     fromName: '', fromEmail: '', outreachTopic: '', emailSignature: '',
   });
 
@@ -47,12 +45,61 @@ export function MainApp() {
     sortOrder: 'newest',
   });
   
-  // New state for "Load More" functionality
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [lastSearchParams, setLastSearchParams] = useState<SearchParams | null>(null);
   const [canLoadMore, setCanLoadMore] = useState(false);
 
   const geolocation = useGeolocation();
+
+  // Load CRM Contacts from Supabase
+  useEffect(() => {
+    const loadContacts = async () => {
+        try {
+            const { data, error } = await supabase.from('crm_contacts').select('*');
+            if (error) {
+                console.error("Error loading contacts from Supabase:", JSON.stringify(error, null, 2));
+                // Don't block the UI, just log it. 
+            } else if (data) {
+                // Map the `data` jsonb column back to the object
+                const loadedContacts = data.map((row: any) => row.data);
+                setCrmContacts(loadedContacts);
+            }
+        } catch (e) {
+            console.error("Unexpected error loading contacts:", e);
+        }
+    };
+    loadContacts();
+  }, []);
+
+  // Load Settings from Supabase
+  useEffect(() => {
+    if (!currentUser) return;
+    const loadSettings = async () => {
+        try {
+            const { data, error } = await supabase.from('user_settings').select('data').eq('user_id', currentUser.id).single();
+            if (error && error.code !== 'PGRST116') { // Ignore "Row not found" error
+                 console.error("Error loading settings:", JSON.stringify(error, null, 2));
+            }
+            if (data && data.data) {
+                setSettings(data.data);
+            }
+        } catch (e) {
+            console.error("Unexpected error loading settings:", e);
+        }
+    };
+    loadSettings();
+  }, [currentUser]);
+
+  const saveSettings = async (newSettings: Settings) => {
+      setSettings(newSettings);
+      if (currentUser) {
+          const { error } = await supabase.from('user_settings').upsert({
+              user_id: currentUser.id,
+              data: newSettings
+          });
+          if (error) console.error("Error saving settings:", JSON.stringify(error, null, 2));
+      }
+  };
 
   const filteredAndSortedContacts = React.useMemo(() => {
       let filtered = [...crmContacts];
@@ -146,46 +193,78 @@ export function MainApp() {
     setError(null); setSelectedBusiness(business); setIsEmailComposerOpen(true);
   };
   
-  const handleEmailSent = (businessId: string) => {
+  // Sync helper
+  const upsertContactToDb = async (contact: CrmContact) => {
+      const { error } = await supabase.from('crm_contacts').upsert({
+          id: contact.id,
+          assigned_to: contact.assignedTo,
+          status: contact.status,
+          data: contact
+      });
+      if (error) console.error("Error upserting contact:", JSON.stringify(error, null, 2));
+  };
+
+  const handleEmailSent = async (businessId: string) => {
     setEmailedBusinessIds(prev => [...prev, businessId]);
-    if (crmContacts.some(c => c.id === businessId)) {
-      setCrmContacts(crmContacts.map(c => c.id === businessId ? {
-        ...c, status: 'Contacted', activities: [{ id: Date.now().toString(), type: 'email', content: `Email sent regarding "${settings.outreachTopic}".`, timestamp: new Date().toISOString() }, ...c.activities]
-      } : c));
+    const contact = crmContacts.find(c => c.id === businessId);
+    if (contact) {
+        const updatedContact = {
+             ...contact, 
+             status: 'Contacted' as LeadStatus, 
+             activities: [{ id: Date.now().toString(), type: 'email' as const, content: `Email sent regarding "${settings.outreachTopic}".`, timestamp: new Date().toISOString() }, ...contact.activities]
+        };
+        setCrmContacts(prev => prev.map(c => c.id === businessId ? updatedContact : c));
+        await upsertContactToDb(updatedContact);
     }
   };
 
-  const handleAddToCrm = (business: Business) => {
+  const handleAddToCrm = async (business: Business) => {
     if (crmContacts.some(c => c.id === business.id)) return;
-    setCrmContacts([...crmContacts, { ...business, status: 'New', activities: [{ id: Date.now().toString(), type: 'created', content: 'Contact added to CRM.', timestamp: new Date().toISOString() }] }]);
+    const newContact: CrmContact = { ...business, status: 'New', activities: [{ id: Date.now().toString(), type: 'created', content: 'Contact added to CRM.', timestamp: new Date().toISOString() }] };
+    setCrmContacts(prev => [...prev, newContact]);
+    await upsertContactToDb(newContact);
   };
 
-  const handleRemoveFromCrm = (businessId: string) => setCrmContacts(crmContacts.filter(c => c.id !== businessId));
-  
-  const handleUpdateStatus = (contactId: string, status: LeadStatus) => {
-    setCrmContacts(crmContacts.map(c => c.id === contactId ? {
-      ...c, status, activities: [{ id: Date.now().toString(), type: 'status_change', content: `Status changed from ${c.status} to ${status}.`, timestamp: new Date().toISOString() }, ...c.activities]
-    } : c));
-  };
-
-  const handleAddNote = (contactId: string, note: string) => {
-    setCrmContacts(crmContacts.map(c => c.id === contactId ? {
-      ...c, activities: [{ id: Date.now().toString(), type: 'note', content: note, timestamp: new Date().toISOString() }, ...c.activities]
-    } : c));
+  const handleRemoveFromCrm = async (businessId: string) => {
+      setCrmContacts(prev => prev.filter(c => c.id !== businessId));
+      const { error } = await supabase.from('crm_contacts').delete().eq('id', businessId);
+      if (error) console.error("Error removing contact:", JSON.stringify(error, null, 2));
   };
   
-  const handleAssignContact = (contactId: string, userId: string | 'unassigned') => {
-    const user = users.find(u => u.id === userId);
-    setCrmContacts(crmContacts.map(c => {
-      if (c.id === contactId) {
-        const prevAssignee = users.find(u => u.id === c.assignedTo)?.username || 'unassigned';
-        return { 
-          ...c, assignedTo: userId === 'unassigned' ? undefined : userId, 
-          activities: [{ id: Date.now().toString(), type: 'assignment', content: userId === 'unassigned' ? `Unassigned from ${prevAssignee}.` : `Assigned to ${user?.username} by ${currentUser?.username}.`, timestamp: new Date().toISOString() }, ...c.activities] 
+  const handleUpdateStatus = async (contactId: string, status: LeadStatus) => {
+    const contact = crmContacts.find(c => c.id === contactId);
+    if (contact) {
+        const updatedContact = {
+            ...contact, status, activities: [{ id: Date.now().toString(), type: 'status_change' as const, content: `Status changed from ${contact.status} to ${status}.`, timestamp: new Date().toISOString() }, ...contact.activities]
         };
-      }
-      return c;
-    }));
+        setCrmContacts(prev => prev.map(c => c.id === contactId ? updatedContact : c));
+        await upsertContactToDb(updatedContact);
+    }
+  };
+
+  const handleAddNote = async (contactId: string, note: string) => {
+    const contact = crmContacts.find(c => c.id === contactId);
+    if (contact) {
+        const updatedContact = {
+          ...contact, activities: [{ id: Date.now().toString(), type: 'note' as const, content: note, timestamp: new Date().toISOString() }, ...contact.activities]
+        };
+        setCrmContacts(prev => prev.map(c => c.id === contactId ? updatedContact : c));
+        await upsertContactToDb(updatedContact);
+    }
+  };
+  
+  const handleAssignContact = async (contactId: string, userId: string | 'unassigned') => {
+    const user = users.find(u => u.id === userId);
+    const contact = crmContacts.find(c => c.id === contactId);
+    if (contact) {
+        const prevAssignee = users.find(u => u.id === contact.assignedTo)?.username || 'unassigned';
+        const updatedContact = { 
+          ...contact, assignedTo: userId === 'unassigned' ? undefined : userId, 
+          activities: [{ id: Date.now().toString(), type: 'assignment' as const, content: userId === 'unassigned' ? `Unassigned from ${prevAssignee}.` : `Assigned to ${user?.username} by ${currentUser?.username}.`, timestamp: new Date().toISOString() }, ...contact.activities] 
+        };
+        setCrmContacts(prev => prev.map(c => c.id === contactId ? updatedContact : c));
+        await upsertContactToDb(updatedContact);
+    }
   };
 
   const handleSaveUser = (user: User) => {
@@ -194,11 +273,24 @@ export function MainApp() {
     } else {
       setUsers([...users, { ...user, id: `user-${Date.now()}` }]);
     }
+    // Persistence handled by AuthContext
   };
   
-  const handleRemoveUser = (userId: string) => {
-    setCrmContacts(crmContacts.map(c => c.assignedTo === userId ? { ...c, assignedTo: undefined } : c));
+  const handleRemoveUser = async (userId: string) => {
+    // Unassign contacts locally
+    const contactsToUpdate = crmContacts.filter(c => c.assignedTo === userId);
+    const updatedContacts = crmContacts.map(c => c.assignedTo === userId ? { ...c, assignedTo: undefined } : c);
+    setCrmContacts(updatedContacts);
+    
+    // Persist unassigned contacts
+    for (const contact of contactsToUpdate) {
+        await upsertContactToDb({ ...contact, assignedTo: undefined });
+    }
+
+    // Remove user
     setUsers(users.filter(u => u.id !== userId));
+    const { error } = await supabase.from('app_users').delete().eq('id', userId);
+    if (error) console.error("Error removing user:", JSON.stringify(error, null, 2));
   };
 
   const handleDownloadCsv = () => {
@@ -280,7 +372,6 @@ export function MainApp() {
                       </div>
                     )}
                     <BusinessList businesses={businesses} onComposeEmail={handleComposeEmail} emailedBusinessIds={emailedBusinessIds} onAddToCrm={handleAddToCrm} crmContactIds={crmContactIds} />
-                    {/* Fix: Render grounding chunks below the business list */}
                     {groundingChunks && groundingChunks.length > 0 && (
                       <div className="mt-8 p-4 bg-base-200 rounded-lg">
                         <h4 className="text-lg font-semibold text-white mb-3">Data Sources</h4>
@@ -334,7 +425,7 @@ export function MainApp() {
         </div>
       </main>
 
-      <SettingsModal isOpen={isSettingsModalOpen} onClose={() => setIsSettingsModalOpen(false)} settings={settings} onSave={setSettings} />
+      <SettingsModal isOpen={isSettingsModalOpen} onClose={() => setIsSettingsModalOpen(false)} settings={settings} onSave={saveSettings} />
       <EmailComposerModal isOpen={isEmailComposerOpen} onClose={() => setIsEmailComposerOpen(false)} business={selectedBusiness} settings={settings} onEmailSent={handleEmailSent} />
       {isUserModalOpen && <AddEditUserModal isOpen={isUserModalOpen} onClose={() => setIsUserModalOpen(false)} onSave={handleSaveUser} userToEdit={editingUser} />}
     </>

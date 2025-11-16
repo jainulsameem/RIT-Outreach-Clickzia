@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useEffect } from 'react';
-import type { User } from '../types';
-import { useLocalStorage } from '../hooks/useLocalStorage';
 
-// Master admin credentials
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import type { User } from '../types';
+import { supabase } from '../services/supabaseClient';
+
+// Master admin credentials (fallback/seed)
 const MASTER_ADMIN_USERNAME = 'Sameem';
 const MASTER_ADMIN_PASSWORD = 'nazia123!';
 const MASTER_ADMIN_ID = 'master-admin';
@@ -18,45 +19,95 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [storedUsers, setStoredUsers] = useLocalStorage<User[]>('users', []);
-    const [currentUser, setCurrentUser] = useLocalStorage<User | null>('currentUser', null);
+    const [users, setUsers] = useState<User[]>([]);
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-    // Seed master admin if no users exist
+    // Load users and handle seed
     useEffect(() => {
-        if (storedUsers.length === 0) {
-            const masterAdmin: User = {
-                id: MASTER_ADMIN_ID,
-                username: MASTER_ADMIN_USERNAME,
-                password: MASTER_ADMIN_PASSWORD, // In a real app, this would be hashed
-                role: 'admin',
-            };
-            setStoredUsers([masterAdmin]);
+        const fetchUsers = async () => {
+            try {
+                const { data, error } = await supabase.from('app_users').select('*');
+                
+                if (error) {
+                    // Improved logging to show the actual error object in console
+                    console.error('Error fetching users from Supabase:', JSON.stringify(error, null, 2));
+                    if (error.code === '42P01') {
+                        console.error("Creating 'app_users' table might be required. Check your Supabase SQL Editor.");
+                    }
+                    return;
+                }
+
+                if (!data || data.length === 0) {
+                    // Seed master admin
+                    const masterAdmin: User = {
+                        id: MASTER_ADMIN_ID,
+                        username: MASTER_ADMIN_USERNAME,
+                        password: MASTER_ADMIN_PASSWORD,
+                        role: 'admin',
+                    };
+                    
+                    // Try to insert master admin. This might fail if connection is bad, but we try.
+                    const { error: insertError } = await supabase.from('app_users').insert(masterAdmin);
+                    if (insertError) {
+                        console.error('Error seeding master admin:', JSON.stringify(insertError, null, 2));
+                    }
+                    
+                    setUsers([masterAdmin]);
+                } else {
+                    setUsers(data);
+                }
+            } catch (err) {
+                console.error('Unexpected error in fetchUsers:', err);
+            }
+        };
+
+        fetchUsers();
+
+        // Check for existing session in localStorage just for convenience of refresh
+        const storedUser = localStorage.getItem('currentUser');
+        if (storedUser) {
+            setCurrentUser(JSON.parse(storedUser));
         }
-    }, [storedUsers, setStoredUsers]);
+    }, []);
 
     const login = async (username: string, password: string): Promise<void> => {
-        const user = storedUsers.find(
-            u => u.username === username && u.password === password
-        );
+        // Verify against Supabase
+        const { data, error } = await supabase
+            .from('app_users')
+            .select('*')
+            .eq('username', username)
+            .eq('password', password)
+            .single();
 
-        if (user) {
-            setCurrentUser(user);
-        } else {
+        if (error || !data) {
+            console.error("Login error details:", error ? JSON.stringify(error, null, 2) : "No data returned");
             throw new Error('Invalid username or password');
         }
+
+        setCurrentUser(data);
+        localStorage.setItem('currentUser', JSON.stringify(data));
     };
 
     const logout = () => {
         setCurrentUser(null);
+        localStorage.removeItem('currentUser');
     };
     
-    const updateUsersAndPersist = (updatedUsers: User[]) => {
-        setStoredUsers(updatedUsers);
+    const updateUsersAndPersist = async (updatedUsers: User[]) => {
+        setUsers(updatedUsers);
+        
+        // We iterate and upsert.
+        for (const user of updatedUsers) {
+             const { error } = await supabase.from('app_users').upsert(user);
+             if (error) {
+                 console.error('Error upserting user:', user.username, JSON.stringify(error, null, 2));
+             }
+        }
     };
 
     const value = {
         currentUser,
-        users: storedUsers,
+        users,
         login,
         logout,
         updateUsersAndPersist,
