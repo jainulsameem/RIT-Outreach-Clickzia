@@ -1,3 +1,4 @@
+
 import React from 'react';
 import type { Business } from '../types';
 import { EmailIcon, PhoneIcon, WebsiteIcon, LocationIcon, WhatsAppIcon, AddToCrmIcon, FacebookIcon } from './icons';
@@ -26,6 +27,12 @@ const ProfileStatusBadge: React.FC<{ status?: string }> = ({ status }) => {
 export const BusinessListItem: React.FC<BusinessListItemProps> = ({ business, onComposeEmail, hasBeenEmailed, onAddToCrm, isInCrm }) => {
     const sanitizedPhone = business.phone ? business.phone.replace(/[^0-9+]/g, '') : '';
     
+    // Helper to ensure URL has protocol
+    const getExternalUrl = (url: string) => {
+        if (!url) return '';
+        return url.startsWith('http') ? url : `https://${url}`;
+    };
+
     return (
         <li className="bg-base-200 p-4 rounded-lg shadow-md flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0 sm:gap-4">
             <div className="flex-grow">
@@ -48,7 +55,7 @@ export const BusinessListItem: React.FC<BusinessListItemProps> = ({ business, on
                         </p>
                     )}
                     {business.website && (
-                        <a href={business.website} target="_blank" rel="noopener noreferrer" className="text-brand-light hover:text-white hover:underline flex items-center">
+                        <a href={getExternalUrl(business.website)} target="_blank" rel="noopener noreferrer" className="text-brand-light hover:text-white hover:underline flex items-center">
                             <WebsiteIcon /> <span className="ml-2">Visit Website</span>
                         </a>
                     )}

@@ -135,6 +135,12 @@ export const CrmListItem: React.FC<CrmListItemProps> = ({ contact, onComposeEmai
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
+    // Helper to ensure URL has protocol
+    const getExternalUrl = (url: string) => {
+        if (!url) return '';
+        return url.startsWith('http') ? url : `https://${url}`;
+    };
+
     return (
         <li className="bg-base-200 rounded-lg shadow-md transition-all duration-300">
             <div className="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0 sm:gap-4 cursor-pointer" onClick={() => !isEditing && setIsExpanded(!isExpanded)}>
@@ -264,7 +270,7 @@ export const CrmListItem: React.FC<CrmListItemProps> = ({ contact, onComposeEmai
                                <div className="space-y-2 mb-4">
                                    {contact.phone && <p className="text-gray-300 flex items-center"><PhoneIcon className="h-4 w-4 mr-2"/> {contact.phone}</p>}
                                    {contact.email && <p className="text-gray-300 flex items-center"><EmailIcon className="h-4 w-4 mr-2"/> {contact.email}</p>}
-                                   {contact.website && <a href={contact.website} target="_blank" rel="noopener noreferrer" className="text-brand-light hover:text-white hover:underline flex items-center"><WebsiteIcon className="h-4 w-4 mr-2"/> Visit Website</a>}
+                                   {contact.website && <a href={getExternalUrl(contact.website)} target="_blank" rel="noopener noreferrer" className="text-brand-light hover:text-white hover:underline flex items-center"><WebsiteIcon className="h-4 w-4 mr-2"/> Visit Website</a>}
                                    {contact.address && <p className="text-gray-300 flex items-start"><LocationIcon className="h-4 w-4 mr-2 mt-1"/> <span>{contact.address}</span></p>}
                                </div>
                            )}
