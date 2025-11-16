@@ -1,7 +1,8 @@
+
 import React, { useState } from 'react';
 import type { CrmContact, LeadStatus, Activity, Business, User } from '../types';
 import { leadStatuses } from '../types';
-import { EmailIcon, PhoneIcon, WebsiteIcon, LocationIcon, WhatsAppIcon, TrashIcon, ChevronDownIcon, ChevronUpIcon, NoteIcon, StatusChangeIcon, CreatedIcon, UserIcon, AssignUserIcon } from './icons';
+import { EmailIcon, PhoneIcon, WebsiteIcon, WhatsAppIcon, TrashIcon, ChevronDownIcon, ChevronUpIcon, NoteIcon, StatusChangeIcon, CreatedIcon, UserIcon, AssignUserIcon } from './icons';
 
 interface CrmListItemProps {
     contact: CrmContact;
@@ -91,7 +92,6 @@ const AddNoteForm: React.FC<{ onAddNote: (note: string) => void }> = ({ onAddNot
     );
 };
 
-
 export const CrmListItem: React.FC<CrmListItemProps> = ({ contact, onComposeEmail, hasBeenEmailed, onRemoveFromCrm, onUpdateStatus, onAddNote, users, currentUser, onAssignContact }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const sanitizedPhone = contact.phone ? contact.phone.replace(/[^0-9+]/g, '') : '';
@@ -123,14 +123,14 @@ export const CrmListItem: React.FC<CrmListItemProps> = ({ contact, onComposeEmai
                             <h4 className="text-lg font-semibold text-white mb-2">Contact Actions</h4>
                             <div className="flex flex-wrap gap-2">
                                 {contact.phone && (
-                                    <>
-                                        <a href={`https://wa.me/${sanitizedPhone}`} target="_blank" rel="noopener noreferrer" className="flex-1 sm:flex-grow-0 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-md transition-colors flex items-center justify-center text-sm" aria-label={`Message on WhatsApp`}>
-                                            <WhatsAppIcon/> <span className="ml-2 hidden sm:inline">WhatsApp</span>
-                                        </a>
-                                        <a href={`tel:${sanitizedPhone}`} className="flex-1 sm:flex-grow-0 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-md transition-colors flex items-center justify-center text-sm" aria-label={`Call`}>
-                                            <PhoneIcon/> <span className="ml-2 hidden sm:inline">Call</span>
-                                        </a>
-                                    </>
+                                    <a href={`https://wa.me/${sanitizedPhone}`} target="_blank" rel="noopener noreferrer" className="flex-1 sm:flex-grow-0 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-md transition-colors flex items-center justify-center text-sm" aria-label={`Message on WhatsApp`}>
+                                        <WhatsAppIcon/> <span className="ml-2 hidden sm:inline">WhatsApp</span>
+                                    </a>
+                                )}
+                                {contact.phone && (
+                                    <a href={`tel:${sanitizedPhone}`} className="flex-1 sm:flex-grow-0 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-md transition-colors flex items-center justify-center text-sm" aria-label={`Call`}>
+                                        <PhoneIcon/> <span className="ml-2 hidden sm:inline">Call</span>
+                                    </a>
                                 )}
                                 <button onClick={() => onComposeEmail(contact)} disabled={!contact.email || hasBeenEmailed} className="flex-1 sm:flex-grow-0 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-3 rounded-md transition-colors flex items-center justify-center text-sm disabled:bg-gray-500">
                                     <EmailIcon className="h-4 w-4" /> <span className="ml-2 hidden sm:inline">{hasBeenEmailed ? 'Emailed' : 'Email'}</span>
@@ -146,7 +146,7 @@ export const CrmListItem: React.FC<CrmListItemProps> = ({ contact, onComposeEmai
                                     value={contact.status}
                                     onChange={(e) => onUpdateStatus(contact.id, e.target.value as LeadStatus)}
                                     className="w-full bg-base-300 border border-gray-600 rounded-md px-3 py-2 text-white focus:ring-2 focus:ring-brand-primary"
-                                    onClick={e => e.stopPropagation()} // Prevent closing accordion
+                                    onClick={e => e.stopPropagation()}
                                 >
                                     {leadStatuses.map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>

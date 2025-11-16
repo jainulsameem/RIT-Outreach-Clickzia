@@ -28,7 +28,7 @@ export const CrmList: React.FC<CrmListProps> = ({ contacts, onComposeEmail, emai
             {contacts.map(contact => (
                 <CrmListItem
                     key={contact.id}
-                    contact={contact}
+                    contact={{...contact, activities: contact.activities || []}}
                     onComposeEmail={onComposeEmail}
                     hasBeenEmailed={emailedBusinessIds.includes(contact.id)}
                     onRemoveFromCrm={onRemoveFromCrm}

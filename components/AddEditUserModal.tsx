@@ -35,7 +35,8 @@ export const AddEditUserModal: React.FC<AddEditUserModalProps> = ({ isOpen, onCl
         onClose();
     };
 
-    const handleChange = <T extends keyof User>(field: T, value: User[T]) => {
+    // Refactored to avoid generic arrow function syntax which triggers 'Unexpected token >' in some parsers
+    const handleChange = (field: keyof User, value: any) => {
         setUser(prev => ({ ...prev, [field]: value }));
     };
 

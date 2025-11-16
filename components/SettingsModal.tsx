@@ -23,7 +23,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
         onClose();
     };
 
-    const handleChange = <T extends keyof Settings>(field: T, value: Settings[T]) => {
+    // Refactored to avoid generic arrow function syntax <T extends...> which can confuse TSX parsers
+    const handleChange = (field: keyof Settings, value: string) => {
         setCurrentSettings(prev => ({ ...prev, [field]: value }));
     };
 

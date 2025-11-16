@@ -40,8 +40,6 @@ export const EmailComposerModal: React.FC<EmailComposerModalProps> = ({ isOpen, 
             const content = await generateColdEmail(business.name, settings.fromName, settings.outreachTopic);
             const signature = settings.emailSignature ? `\n\n--\n${settings.emailSignature}` : '';
             setEmailBody(content.trim() + signature);
-            
-            // Auto-update subject if we want to get fancy later, for now basic default is fine
         } catch (err) {
             setError(err instanceof Error ? err.message : 'An unknown error occurred.');
         } finally {
@@ -80,7 +78,34 @@ export const EmailComposerModal: React.FC<EmailComposerModalProps> = ({ isOpen, 
     };
 
     const isSendDisabled = !emailBody || !subject || isGenerating || isSending;
-    
+
+    // Render Helpers to prevent JSX Syntax Errors
+    const generateButtonContent = isGenerating ? (
+        <span className="flex items-center">
+            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Generating...
+        </span>
+    ) : (
+        <span>✨ Generate with AI</span>
+    );
+
+    const sendButtonContent = isSending ? (
+        <span className="flex items-center">
+            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Sending via Gmail...
+        </span>
+    ) : (
+        <span className="flex items-center">
+            <span className="mr-2">🚀</span> Send via Gmail
+        </span>
+    );
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 transition-opacity">
             <div className="bg-base-200 rounded-lg shadow-2xl p-6 w-full max-w-2xl m-4 flex flex-col transform transition-all h-[80vh]">
@@ -133,9 +158,7 @@ export const EmailComposerModal: React.FC<EmailComposerModalProps> = ({ isOpen, 
                         disabled={isGenerating || isSending}
                         className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center"
                     >
-                        {isGenerating ? (
-                            <><svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Generating...</>
-                        ) : '✨ Generate with AI'}
+                        {generateButtonContent}
                     </button>
                     
                     <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -147,11 +170,7 @@ export const EmailComposerModal: React.FC<EmailComposerModalProps> = ({ isOpen, 
                             disabled={isSendDisabled}
                             className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center"
                         >
-                           {isSending ? (
-                                <><svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Sending via Gmail...</>
-                           ) : (
-                               <><span className="mr-2">🚀</span> Send via Gmail</>
-                           )}
+                           {sendButtonContent}
                         </button>
                     </div>
                 </div>

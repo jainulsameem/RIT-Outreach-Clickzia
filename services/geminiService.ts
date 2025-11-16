@@ -6,50 +6,48 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 const parseJsonResponse = (text: string): any => {
     if (!text) return {};
 
-    // Attempt to extract JSON from markdown code block first
+    // 1. Try extraction from Markdown code blocks
     const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
-    let jsonString = text;
-    
     if (jsonMatch && jsonMatch[1]) {
-        jsonString = jsonMatch[1];
-    } else {
-        // Fallback: find the first '{' or '[' and the last '}' or ']'
-        const firstBracket = text.indexOf('[');
-        const firstBrace = text.indexOf('{');
-
-        let start = -1;
-        if (firstBracket > -1 && firstBrace > -1) {
-            start = Math.min(firstBracket, firstBrace);
-        } else if (firstBracket > -1) {
-            start = firstBracket;
-        } else {
-            start = firstBrace;
-        }
-
-        const lastBracket = text.lastIndexOf(']');
-        const lastBrace = text.lastIndexOf('}');
-
-        let end = -1;
-        if (lastBracket > -1 && lastBrace > -1) {
-            end = Math.max(lastBracket, lastBrace);
-        } else if (lastBracket > -1) {
-            end = lastBracket;
-        } else {
-            end = lastBrace;
-        }
-        
-        if (start !== -1 && end !== -1 && end > start) {
-            jsonString = text.substring(start, end + 1);
+        try {
+            return JSON.parse(jsonMatch[1].trim());
+        } catch (e) {
+            console.warn("Failed to parse JSON from code block, trying loose parsing.");
         }
     }
+
+    // 2. Try finding the outer-most object or array structure
+    let jsonString = text;
+    const firstBrace = text.indexOf('{');
+    const lastBrace = text.lastIndexOf('}');
     
-    try {
-        return JSON.parse(jsonString.trim());
-    } catch (error) {
-        console.error("Failed to parse JSON string. Content was:", `>>>${jsonString}<<<`);
-        // Return empty object instead of throwing to prevent crashing the whole loop
-        return { businesses: [] };
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+         jsonString = text.substring(firstBrace, lastBrace + 1);
+         try {
+            return JSON.parse(jsonString);
+         } catch (e) {
+            // continue to next strategy
+         }
     }
+
+    // 3. Fallback: The model might have returned just the array property value without the key
+    // or invalid trailing commas. This is a best-effort cleanup.
+    try {
+        // Sometimes model returns [ { ... } ] directly without "businesses" key
+        const firstSquare = text.indexOf('[');
+        const lastSquare = text.lastIndexOf(']');
+        if (firstSquare !== -1 && lastSquare !== -1 && lastSquare > firstSquare) {
+            const potentialArray = text.substring(firstSquare, lastSquare + 1);
+            const parsedArray = JSON.parse(potentialArray);
+            if (Array.isArray(parsedArray)) {
+                return { businesses: parsedArray };
+            }
+        }
+    } catch (e) {
+        console.error("All JSON parsing strategies failed for text:", text.substring(0, 100) + "...");
+    }
+
+    return { businesses: [] };
 }
 
 export const findBusinesses = async (
@@ -59,33 +57,33 @@ export const findBusinesses = async (
   userCoords: Coords | null,
   profileStatus: 'all' | 'claimed' | 'unclaimed',
   numberOfResults: number,
-  existingBusinessNames: string[] = []
+  existingBusinessNames: string[] = [],
+  onBatchLoaded?: (businesses: Business[], groundingChunks: GroundingChunk[]) => void
 ): Promise<{ businesses: Business[], groundingChunks: GroundingChunk[] | undefined }> => {
   
   let allBusinesses: Business[] = [];
   let allGroundingChunks: GroundingChunk[] = [];
   let currentExclusionList = [...existingBusinessNames];
   let loopCount = 0;
-  const MAX_LOOPS = 15; 
+  const MAX_LOOPS = 8; // Reduced from 15 to prevent excessive waits
 
   while (allBusinesses.length < numberOfResults && loopCount < MAX_LOOPS) {
     const remainingNeeded = numberOfResults - allBusinesses.length;
-    // Keep batch size manageable for the model
-    const batchSize = Math.min(remainingNeeded, 20);
+    // Request slightly more than needed to account for duplicates/filtering
+    const batchSize = Math.min(remainingNeeded + 2, 20);
     const requestCount = Math.max(5, batchSize);
 
-    // Dynamic instruction to force the model to look "deeper" in subsequent loops
     const variationInstruction = loopCount === 0 
         ? `Search broadly in '${location}'.` 
-        : `CRITICAL PAGINATION STRATEGY: You have already found the top results. To find ${requestCount} NEW businesses, you MUST vary your search query. Search in specific **neighborhoods**, **streets**, or **adjacent areas** within '${location}'. Do NOT repeat the general search.`;
+        : `CRITICAL: You have already found the top results. To find ${requestCount} NEW businesses, you MUST vary your search query. Search in specific **neighborhoods**, **streets**, or **adjacent areas** within '${location}' that you haven't checked yet.`;
 
     const finalPrompt = `
       Task: Find ${requestCount} NEW and UNIQUE business profiles.
       
       CONTEXT:
-      We are compiling a comprehensive list.
+      We are compiling a list of local businesses.
       ALREADY FOUND / EXCLUDED (Do NOT return these):
-      ${JSON.stringify(currentExclusionList)}
+      ${JSON.stringify(currentExclusionList.slice(-50))}
       
       SEARCH PARAMETERS:
       - Industry: ${industry === 'All' ? 'Any' : industry}
@@ -95,15 +93,11 @@ export const findBusinesses = async (
 
       INSTRUCTIONS:
       1. **Smart Search**: ${variationInstruction}
-      2. **Data Extraction (CRITICAL)**:
-         - **Website**: You MUST prioritize extracting the official 'website' field from the Google Maps result. This is the business's own URL (e.g., 'www.pizzaplace.com'). 
-           - If the Maps result has a website, USE IT.
-           - If Maps has NO website, use Google Search to find it: query "${keywords} ${location} official website".
-           - Do NOT return a 'google.com/maps/...' link as the website.
-         - **Email**: Google Maps rarely lists emails. You MUST use Google Search to find an email address. Query: "${keywords} ${location} email contact" or "contact us".
-      3. **Profile Status**: If using Google Maps, check if the business is claimed.
-      4. **Format**: Return a valid JSON object.
-
+      2. **Data Extraction**:
+         - **Website**: Extract the official business website (e.g., 'pizzaplace.com'). Use Google Search if Maps doesn't have it. Do NOT use 'google.com/maps/...' links.
+         - **Email**: Use Google Search to find an email address (look for "contact", "about", or facebook pages in search results).
+      3. **Format**: Return ONLY valid JSON. No markdown, no conversational text.
+      
       Output JSON Format:
       {
         "businesses": [
@@ -112,7 +106,7 @@ export const findBusinesses = async (
             "name": "string",
             "address": "string",
             "phone": "string",
-            "website": "string (The business's own URL)",
+            "website": "string",
             "email": "string (or null)",
             "profileStatus": "claimed | unclaimed | unknown"
           }
@@ -121,7 +115,6 @@ export const findBusinesses = async (
     `;
 
     const config: any = {
-      // Enable both Maps and Search for maximum data coverage
       tools: [{ googleMaps: {} }, { googleSearch: {} }],
     };
 
@@ -153,32 +146,37 @@ export const findBusinesses = async (
           }))
         : [];
       
-      // Strict filtering of duplicates
+      // Strict filtering of duplicates based on name
       newBusinesses = newBusinesses.filter((b: Business) => !currentExclusionList.includes(b.name));
 
-      if (newBusinesses.length === 0) {
-        // If we found nothing new, and we've tried a few times, maybe stop.
-        // But often the model just needs a nudge. 
-        if (loopCount > 2 && newBusinesses.length === 0) break;
-      }
-
-      allBusinesses = [...allBusinesses, ...newBusinesses];
-      currentExclusionList = [...currentExclusionList, ...newBusinesses.map((b: Business) => b.name)];
-      
-      const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
-      if (chunks) {
-        allGroundingChunks = [...allGroundingChunks, ...(chunks as unknown as GroundingChunk[])];
+      if (newBusinesses.length > 0) {
+          allBusinesses = [...allBusinesses, ...newBusinesses];
+          currentExclusionList = [...currentExclusionList, ...newBusinesses.map((b: Business) => b.name)];
+          
+          const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks as unknown as GroundingChunk[];
+          if (chunks) {
+            allGroundingChunks = [...allGroundingChunks, ...chunks];
+          }
+          
+          // PROGRESSIVE UPDATE: Notify UI immediately
+          if (onBatchLoaded) {
+              onBatchLoaded(newBusinesses, chunks || []);
+          }
+      } else {
+           // If we found nothing new, likely we've exhausted obvious results or model is looping.
+           if (loopCount > 3) break;
       }
 
     } catch (error) {
       console.error(`Error in search iteration ${loopCount}:`, error);
-      break;
+      // Don't break immediately, try one more loop potentially
+      if (loopCount > 5) break;
     }
 
     loopCount++;
   }
 
-  return { businesses: allBusinesses.slice(0, numberOfResults), groundingChunks: allGroundingChunks };
+  return { businesses: allBusinesses, groundingChunks: allGroundingChunks };
 };
 
 export const findBusinessesOnFacebook = async (
@@ -186,29 +184,30 @@ export const findBusinessesOnFacebook = async (
   keywords: string,
   location: string,
   numberOfResults: number,
-  existingBusinessNames: string[] = []
+  existingBusinessNames: string[] = [],
+  onBatchLoaded?: (businesses: Business[], groundingChunks: GroundingChunk[]) => void
 ): Promise<{ businesses: Business[], groundingChunks: GroundingChunk[] | undefined }> => {
   
   let allBusinesses: Business[] = [];
   let allGroundingChunks: GroundingChunk[] = [];
   let currentExclusionList = [...existingBusinessNames];
   let loopCount = 0;
-  const MAX_LOOPS = 15;
+  const MAX_LOOPS = 8;
 
   while (allBusinesses.length < numberOfResults && loopCount < MAX_LOOPS) {
     const remainingNeeded = numberOfResults - allBusinesses.length;
-    const batchSize = Math.min(remainingNeeded, 20);
+    const batchSize = Math.min(remainingNeeded + 2, 20);
     const requestCount = Math.max(5, batchSize);
 
     const variationInstruction = loopCount === 0
       ? `Find public Facebook business pages in '${location}'.`
-      : `You have already found the top results. Vary your search query to find NEW results (e.g. different keywords or specific sub-locations in '${location}').`;
+      : `Vary your search query to find NEW results (e.g. specific sub-locations in '${location}').`;
 
     const finalPrompt = `
       Task: Find ${requestCount} NEW business profiles on Facebook.
       
       ALREADY FOUND / EXCLUDED:
-      ${JSON.stringify(currentExclusionList)}
+      ${JSON.stringify(currentExclusionList.slice(-50))}
       
       Search:
       - Industry: ${industry === 'All' ? 'any' : industry}
@@ -217,10 +216,9 @@ export const findBusinessesOnFacebook = async (
       
       Instructions:
       1. ${variationInstruction}
-      2. Extract Business Name, Address, Phone, Website, and Email.
-      3. **Email Priority**: Specifically look for the 'About' section or 'Contact' details on the Facebook page snippets to find an EMAIL address.
-      4. Return valid JSON.
-
+      2. Extract details. Look for 'About' or 'Contact' sections to find EMAILS.
+      3. Return ONLY valid JSON.
+      
       Output:
       {
         "businesses": [
@@ -258,14 +256,21 @@ export const findBusinessesOnFacebook = async (
       
       newBusinesses = newBusinesses.filter((b: Business) => !currentExclusionList.includes(b.name));
 
-      if (newBusinesses.length === 0 && loopCount > 2) break;
+      if (newBusinesses.length > 0) {
+        allBusinesses = [...allBusinesses, ...newBusinesses];
+        currentExclusionList = [...currentExclusionList, ...newBusinesses.map((b: Business) => b.name)];
 
-      allBusinesses = [...allBusinesses, ...newBusinesses];
-      currentExclusionList = [...currentExclusionList, ...newBusinesses.map((b: Business) => b.name)];
+        const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks as unknown as GroundingChunk[];
+        if (chunks) {
+            allGroundingChunks = [...allGroundingChunks, ...chunks];
+        }
 
-      const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
-      if (chunks) {
-        allGroundingChunks = [...allGroundingChunks, ...(chunks as unknown as GroundingChunk[])];
+        // PROGRESSIVE UPDATE
+        if (onBatchLoaded) {
+            onBatchLoaded(newBusinesses, chunks || []);
+        }
+      } else {
+        if (loopCount > 3) break;
       }
 
     } catch (error) {
@@ -276,7 +281,7 @@ export const findBusinessesOnFacebook = async (
     loopCount++;
   }
 
-  return { businesses: allBusinesses.slice(0, numberOfResults), groundingChunks: allGroundingChunks };
+  return { businesses: allBusinesses, groundingChunks: allGroundingChunks };
 };
 
 
@@ -316,7 +321,7 @@ export const getLocationSuggestions = async (query: string): Promise<string[]> =
         Based on the search query "${query}", provide up to 5 relevant location name suggestions.
         Your response MUST be a valid JSON object with a single key "suggestions", which is an array of strings.
         For example: { "suggestions": ["New York, NY, USA", "New York, England", "York, PA, USA"] }.
-        Do not add any other text or explanation. If you find no suggestions, return an empty array.
+        Do not add any other text or explanation.
     `;
 
     try {

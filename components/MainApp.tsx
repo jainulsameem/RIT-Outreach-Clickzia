@@ -58,9 +58,7 @@ export function MainApp() {
             const { data, error } = await supabase.from('crm_contacts').select('*');
             if (error) {
                 console.error("Error loading contacts from Supabase:", JSON.stringify(error, null, 2));
-                // Don't block the UI, just log it. 
             } else if (data) {
-                // Map the `data` jsonb column back to the object
                 const loadedContacts = data.map((row: any) => row.data);
                 setCrmContacts(loadedContacts);
             }
@@ -77,7 +75,7 @@ export function MainApp() {
     const loadSettings = async () => {
         try {
             const { data, error } = await supabase.from('user_settings').select('data').eq('user_id', currentUser.id).single();
-            if (error && error.code !== 'PGRST116') { // Ignore "Row not found" error
+            if (error && error.code !== 'PGRST116') { 
                  console.error("Error loading settings:", JSON.stringify(error, null, 2));
             }
             if (data && data.data) {
@@ -110,7 +108,7 @@ export function MainApp() {
 
       if (filters.date.type !== 'any') {
         filtered = filtered.filter(c => {
-            const createdActivity = c.activities.find(a => a.type === 'created');
+            const createdActivity = c.activities?.find(a => a.type === 'created');
             if (!createdActivity) return false;
             const addedDate = new Date(createdActivity.timestamp);
             addedDate.setHours(0, 0, 0, 0);
@@ -123,8 +121,8 @@ export function MainApp() {
       }
 
       filtered.sort((a, b) => {
-        const aDate = new Date(a.activities.find(act => act.type === 'created')?.timestamp || 0).getTime();
-        const bDate = new Date(b.activities.find(act => act.type === 'created')?.timestamp || 0).getTime();
+        const aDate = new Date(a.activities?.find(act => act.type === 'created')?.timestamp || 0).getTime();
+        const bDate = new Date(b.activities?.find(act => act.type === 'created')?.timestamp || 0).getTime();
         return filters.sortOrder === 'newest' ? bDate - aDate : aDate - bDate;
       });
       return filtered;
@@ -135,13 +133,19 @@ export function MainApp() {
     setGroundingChunks([]);
     setLastSearchParams(params);
     setCanLoadMore(false);
+
+    // PROGRESSIVE LOADING CALLBACK
+    const onBatchLoaded = (newData: Business[], newChunks: GroundingChunk[]) => {
+         setBusinesses(prev => [...prev, ...newData]);
+         if (newChunks) setGroundingChunks(prev => [...(prev || []), ...newChunks]);
+    };
+
     try {
-      const { businesses: results, groundingChunks: chunks } = params.source === 'facebook'
-        ? await findBusinessesOnFacebook(params.industry, params.keywords, params.location, params.numberOfResults)
-        : await findBusinesses(params.industry, params.keywords, params.location, geolocation.coords, params.profileStatus, params.numberOfResults);
-      setBusinesses(results);
-      setGroundingChunks(chunks);
-      if (results.length === params.numberOfResults) {
+      const { businesses: results } = params.source === 'facebook'
+        ? await findBusinessesOnFacebook(params.industry, params.keywords, params.location, params.numberOfResults, [], onBatchLoaded)
+        : await findBusinesses(params.industry, params.keywords, params.location, geolocation.coords, params.profileStatus, params.numberOfResults, [], onBatchLoaded);
+      
+      if (results.length >= params.numberOfResults) {
         setCanLoadMore(true);
       }
     } catch (err) {
@@ -158,20 +162,17 @@ export function MainApp() {
     setError(null);
     const existingBusinessNames = businesses.map(b => b.name);
 
+    const onBatchLoaded = (newData: Business[], newChunks: GroundingChunk[]) => {
+         setBusinesses(prev => [...prev, ...newData]);
+         if (newChunks) setGroundingChunks(prev => [...(prev || []), ...newChunks]);
+    };
+
     try {
-        const { businesses: newResults, groundingChunks: newChunks } = lastSearchParams.source === 'facebook'
-            ? await findBusinessesOnFacebook(lastSearchParams.industry, lastSearchParams.keywords, lastSearchParams.location, lastSearchParams.numberOfResults, existingBusinessNames)
-            : await findBusinesses(lastSearchParams.industry, lastSearchParams.keywords, lastSearchParams.location, geolocation.coords, lastSearchParams.profileStatus, lastSearchParams.numberOfResults, existingBusinessNames);
+        const { businesses: newResults } = lastSearchParams.source === 'facebook'
+            ? await findBusinessesOnFacebook(lastSearchParams.industry, lastSearchParams.keywords, lastSearchParams.location, lastSearchParams.numberOfResults, existingBusinessNames, onBatchLoaded)
+            : await findBusinesses(lastSearchParams.industry, lastSearchParams.keywords, lastSearchParams.location, geolocation.coords, lastSearchParams.profileStatus, lastSearchParams.numberOfResults, existingBusinessNames, onBatchLoaded);
         
-        if (newResults.length > 0) {
-            const uniqueNewBusinesses = newResults.filter(newBusiness => !businesses.some(existing => existing.id === newBusiness.id || existing.name === newBusiness.name));
-            setBusinesses(prev => [...prev, ...uniqueNewBusinesses]);
-            if (newChunks) {
-                setGroundingChunks(prev => [...(prev || []), ...newChunks]);
-            }
-        }
-        
-        if (newResults.length < lastSearchParams.numberOfResults) {
+        if (newResults.length === 0) {
             setCanLoadMore(false);
         } else {
             setCanLoadMore(true);
@@ -193,7 +194,6 @@ export function MainApp() {
     setError(null); setSelectedBusiness(business); setIsEmailComposerOpen(true);
   };
   
-  // Sync helper
   const upsertContactToDb = async (contact: CrmContact) => {
       const { error } = await supabase.from('crm_contacts').upsert({
           id: contact.id,
@@ -273,21 +273,15 @@ export function MainApp() {
     } else {
       setUsers([...users, { ...user, id: `user-${Date.now()}` }]);
     }
-    // Persistence handled by AuthContext
   };
   
   const handleRemoveUser = async (userId: string) => {
-    // Unassign contacts locally
     const contactsToUpdate = crmContacts.filter(c => c.assignedTo === userId);
     const updatedContacts = crmContacts.map(c => c.assignedTo === userId ? { ...c, assignedTo: undefined } : c);
     setCrmContacts(updatedContacts);
-    
-    // Persist unassigned contacts
     for (const contact of contactsToUpdate) {
         await upsertContactToDb({ ...contact, assignedTo: undefined });
     }
-
-    // Remove user
     setUsers(users.filter(u => u.id !== userId));
     const { error } = await supabase.from('app_users').delete().eq('id', userId);
     if (error) console.error("Error removing user:", JSON.stringify(error, null, 2));
@@ -302,7 +296,7 @@ export function MainApp() {
     const headers = ['ID', 'Name', 'Address', 'Phone', 'Website', 'Email', 'Profile Status', 'Source'];
     const rows = businesses.map(b => [ escapeCsvField(b.id), escapeCsvField(b.name), escapeCsvField(b.address), escapeCsvField(b.phone), escapeCsvField(b.website), escapeCsvField(b.email), escapeCsvField(b.profileStatus), escapeCsvField(b.source) ].join(','));
     const csvContent = [headers.join(','), ...rows].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.setAttribute('download', 'prospects.csv');
@@ -313,8 +307,51 @@ export function MainApp() {
 
   const crmContactIds = React.useMemo(() => crmContacts.map(c => c.id), [crmContacts]);
 
+  // Helpers for conditional rendering to avoid JSX syntax errors in returns
+  const renderLoadingState = () => (
+    <div className="text-center py-10">
+        <svg className="animate-spin mx-auto h-10 w-10 text-brand-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <p className="mt-4 text-white text-lg">Starting search...</p>
+    </div>
+  );
+
+  const renderGroundingChunks = () => {
+    if (!groundingChunks || groundingChunks.length === 0) return null;
+    return (
+      <div className="mt-8 p-4 bg-base-200 rounded-lg">
+        <h4 className="text-lg font-semibold text-white mb-3">Data Sources</h4>
+        <ul className="space-y-2">
+          {groundingChunks.map((chunk, index) => {
+            if (chunk.web) {
+              return <li key={index} className="text-sm text-gray-400"><a href={chunk.web.uri} target="_blank" rel="noopener noreferrer" className="text-brand-light hover:underline">{chunk.web.title || chunk.web.uri}</a></li>;
+            }
+            if (chunk.maps) {
+              return (
+                <li key={index} className="text-sm text-gray-400">
+                  <a href={chunk.maps.uri} target="_blank" rel="noopener noreferrer" className="text-brand-light hover:underline">{chunk.maps.title || chunk.maps.uri}</a>
+                  {chunk.maps.placeAnswerSources?.map((source, idx) => 
+                    source.reviewSnippets?.map((snippet, sIndex) => (
+                      <div key={`${idx}-${sIndex}`} className="pl-4 mt-1 border-l-2 border-gray-700">
+                        <blockquote className="italic text-gray-500">"{snippet.snippet}"</blockquote>
+                        <a href={snippet.uri} target="_blank" rel="noopener noreferrer" className="text-brand-light hover:underline text-xs">{snippet.title}</a>
+                      </div>
+                    ))
+                  )}
+                </li>
+              );
+            }
+            return null;
+          })}
+        </ul>
+      </div>
+    );
+  };
+
   return (
-    <>
+    <React.Fragment>
       <header className="bg-base-200 shadow-md">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-3xl font-bold text-white">Rit Outreach by Click Zia</h1>
@@ -335,7 +372,7 @@ export function MainApp() {
         </div>
       </header>
       
-      <main className="container mx-auto p-4 md:p-8">
+      <div className="container mx-auto p-4 md:p-8">
         <div className="max-w-4xl mx-auto">
           <section className="mb-8">
               <SearchForm onSearch={handleSearch} isLoading={isLoading || isLoadingMore} />
@@ -357,77 +394,56 @@ export function MainApp() {
           <section>
             {error && <div className="bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded-md mb-6" role="alert">{error}</div>}
             
-            {activeTab === 'crm' && <CrmFilterBar filters={filters} onFiltersChange={setFilters} users={users} currentUser={currentUser} />}
+            {activeTab === 'crm' && <CrmList contacts={filteredAndSortedContacts} onComposeEmail={handleComposeEmail} emailedBusinessIds={emailedBusinessIds} onRemoveFromCrm={handleRemoveFromCrm} onUpdateStatus={handleUpdateStatus} onAddNote={handleAddNote} users={users} currentUser={currentUser} onAssignContact={handleAssignContact} />}
             
-            {isLoading ? (
-                <div className="text-center py-10"><svg className="animate-spin mx-auto h-10 w-10 text-brand-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><p className="mt-4 text-white text-lg">Searching for businesses...</p></div>
-            ) : (
-              <>
-                {activeTab === 'search' && (
+            {activeTab === 'search' && (
                   <div>
-                    {businesses.length > 0 && (
-                      <div className="flex justify-between items-center mb-4">
-                        <p className="text-gray-400">Found {businesses.length} prospects.</p>
-                        <button onClick={handleDownloadCsv} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition-colors flex items-center"><DownloadIcon /><span className="ml-2">Download CSV</span></button>
-                      </div>
-                    )}
-                    <BusinessList businesses={businesses} onComposeEmail={handleComposeEmail} emailedBusinessIds={emailedBusinessIds} onAddToCrm={handleAddToCrm} crmContactIds={crmContactIds} />
-                    {groundingChunks && groundingChunks.length > 0 && (
-                      <div className="mt-8 p-4 bg-base-200 rounded-lg">
-                        <h4 className="text-lg font-semibold text-white mb-3">Data Sources</h4>
-                        <ul className="space-y-2">
-                          {groundingChunks.map((chunk, index) => {
-                            if (chunk.web) {
-                              return <li key={index} className="text-sm text-gray-400"><a href={chunk.web.uri} target="_blank" rel="noopener noreferrer" className="text-brand-light hover:underline">{chunk.web.title || chunk.web.uri}</a></li>;
-                            }
-                            if (chunk.maps) {
-                              return (
-                                <li key={index} className="text-sm text-gray-400">
-                                  <a href={chunk.maps.uri} target="_blank" rel="noopener noreferrer" className="text-brand-light hover:underline">{chunk.maps.title || chunk.maps.uri}</a>
-                                  {chunk.maps.placeAnswerSources?.map(source => 
-                                    source.reviewSnippets?.map((snippet, sIndex) => (
-                                      <div key={sIndex} className="pl-4 mt-1 border-l-2 border-gray-700">
-                                        <blockquote className="italic text-gray-500">"{snippet.snippet}"</blockquote>
-                                        <a href={snippet.uri} target="_blank" rel="noopener noreferrer" className="text-brand-light hover:underline text-xs">{snippet.title}</a>
-                                      </div>
-                                    ))
-                                  )}
-                                </li>
-                              );
-                            }
-                            return null;
-                          })}
-                        </ul>
-                      </div>
-                    )}
-                    {canLoadMore && (
-                        <div className="flex justify-center mt-6">
-                            <button
-                                onClick={handleLoadMore}
-                                disabled={isLoadingMore}
-                                className="bg-brand-secondary hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-md transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center"
-                            >
-                                {isLoadingMore ? (
-                                    <><svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Loading More...</>
-                                ) : 'Load More Results'}
-                            </button>
-                        </div>
+                    {isLoading && businesses.length === 0 ? renderLoadingState() : (
+                      <React.Fragment>
+                        {businesses.length > 0 && (
+                          <div className="flex justify-between items-center mb-4">
+                            <p className="text-gray-400">Found {businesses.length} prospects{isLoading ? " (still searching...)" : ""}.</p>
+                            <button onClick={handleDownloadCsv} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition-colors flex items-center"><DownloadIcon /><span className="ml-2">Download CSV</span></button>
+                          </div>
+                        )}
+                        <BusinessList businesses={businesses} onComposeEmail={handleComposeEmail} emailedBusinessIds={emailedBusinessIds} onAddToCrm={handleAddToCrm} crmContactIds={crmContactIds} />
+                        
+                        {isLoading && businesses.length > 0 && (
+                             <div className="flex justify-center py-4">
+                                <svg className="animate-spin h-6 w-6 text-brand-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                             </div>
+                        )}
+
+                        {renderGroundingChunks()}
+
+                        {!isLoading && canLoadMore && (
+                            <div className="flex justify-center mt-6">
+                                <button
+                                    onClick={handleLoadMore}
+                                    disabled={isLoadingMore}
+                                    className="bg-brand-secondary hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-md transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center"
+                                >
+                                    {isLoadingMore ? (
+                                        <span className="flex items-center"><svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Loading More...</span>
+                                    ) : 'Load More Results'}
+                                </button>
+                            </div>
+                        )}
+                      </React.Fragment>
                     )}
                   </div>
                 )}
-                {activeTab === 'crm' && <CrmList contacts={filteredAndSortedContacts} onComposeEmail={handleComposeEmail} emailedBusinessIds={emailedBusinessIds} onRemoveFromCrm={handleRemoveFromCrm} onUpdateStatus={handleUpdateStatus} onAddNote={handleAddNote} users={users} currentUser={currentUser} onAssignContact={handleAssignContact} />}
+                
                 {activeTab === 'users' && currentUser?.role === 'admin' && (
                   <UserManagement crmContacts={crmContacts} onAddUser={() => { setEditingUser(null); setIsUserModalOpen(true); }} onEditUser={(user) => { setEditingUser(user); setIsUserModalOpen(true); }} onRemoveUser={handleRemoveUser} />
                 )}
-              </>
-            )}
           </section>
         </div>
-      </main>
+      </div>
 
       <SettingsModal isOpen={isSettingsModalOpen} onClose={() => setIsSettingsModalOpen(false)} settings={settings} onSave={saveSettings} />
       <EmailComposerModal isOpen={isEmailComposerOpen} onClose={() => setIsEmailComposerOpen(false)} business={selectedBusiness} settings={settings} onEmailSent={handleEmailSent} />
       {isUserModalOpen && <AddEditUserModal isOpen={isUserModalOpen} onClose={() => setIsUserModalOpen(false)} onSave={handleSaveUser} userToEdit={editingUser} />}
-    </>
+    </React.Fragment>
   );
 }
