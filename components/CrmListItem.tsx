@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import type { CrmContact, LeadStatus, Activity, Business, User } from '../types';
 import { leadStatuses } from '../types';
-import { EmailIcon, PhoneIcon, WebsiteIcon, WhatsAppIcon, TrashIcon, ChevronDownIcon, ChevronUpIcon, NoteIcon, StatusChangeIcon, CreatedIcon, UserIcon, AssignUserIcon } from './icons';
+import { EmailIcon, PhoneIcon, WebsiteIcon, WhatsAppIcon, TrashIcon, ChevronDownIcon, ChevronUpIcon, NoteIcon, StatusChangeIcon, CreatedIcon, UserIcon, AssignUserIcon, EditIcon, CheckIcon, CancelIcon, LocationIcon } from './icons';
 
 interface CrmListItemProps {
     contact: CrmContact;
@@ -14,6 +14,7 @@ interface CrmListItemProps {
     users: User[];
     currentUser: User | null;
     onAssignContact: (contactId: string, userId: string | 'unassigned') => void;
+    onUpdateContactDetails: (contactId: string, updates: Partial<CrmContact>) => void;
 }
 
 const statusColors: Record<LeadStatus, string> = {
@@ -92,18 +93,65 @@ const AddNoteForm: React.FC<{ onAddNote: (note: string) => void }> = ({ onAddNot
     );
 };
 
-export const CrmListItem: React.FC<CrmListItemProps> = ({ contact, onComposeEmail, hasBeenEmailed, onRemoveFromCrm, onUpdateStatus, onAddNote, users, currentUser, onAssignContact }) => {
+export const CrmListItem: React.FC<CrmListItemProps> = ({ contact, onComposeEmail, hasBeenEmailed, onRemoveFromCrm, onUpdateStatus, onAddNote, users, currentUser, onAssignContact, onUpdateContactDetails }) => {
     const [isExpanded, setIsExpanded] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [formData, setFormData] = useState({
+        name: contact.name,
+        phone: contact.phone || '',
+        email: contact.email || '',
+        website: contact.website || '',
+        address: contact.address || ''
+    });
+
     const sanitizedPhone = contact.phone ? contact.phone.replace(/[^0-9+]/g, '') : '';
     const assignedUser = users.find(u => u.id === contact.assignedTo);
     
+    const handleEditClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setFormData({
+            name: contact.name,
+            phone: contact.phone || '',
+            email: contact.email || '',
+            website: contact.website || '',
+            address: contact.address || ''
+        });
+        setIsEditing(true);
+        setIsExpanded(true); // Ensure expanded to see form
+    };
+
+    const handleCancelEdit = (e: React.MouseEvent) => {
+         e.stopPropagation();
+         setIsEditing(false);
+    };
+
+    const handleSaveEdit = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        onUpdateContactDetails(contact.id, formData);
+        setIsEditing(false);
+    };
+
+    const handleInputChange = (field: string, value: string) => {
+        setFormData(prev => ({ ...prev, [field]: value }));
+    };
+
     return (
         <li className="bg-base-200 rounded-lg shadow-md transition-all duration-300">
-            <div className="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0 sm:gap-4 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
-                <div className="flex-grow">
+            <div className="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0 sm:gap-4 cursor-pointer" onClick={() => !isEditing && setIsExpanded(!isExpanded)}>
+                <div className="flex-grow w-full">
                     <div className="flex items-center flex-wrap">
-                        <h3 className="text-xl font-bold text-white mr-2">{contact.name}</h3>
-                        <LeadStatusBadge status={contact.status} />
+                        {isEditing ? (
+                            <input 
+                                type="text" 
+                                value={formData.name} 
+                                onChange={e => handleInputChange('name', e.target.value)}
+                                className="text-xl font-bold text-white bg-base-300 border border-gray-600 rounded px-2 py-1 mr-2 w-full sm:w-auto"
+                                onClick={e => e.stopPropagation()}
+                            />
+                        ) : (
+                            <h3 className="text-xl font-bold text-white mr-2">{contact.name}</h3>
+                        )}
+                        {!isEditing && <LeadStatusBadge status={contact.status} />}
                     </div>
                      <div className="flex items-center text-sm text-gray-400 mt-1">
                         <UserIcon className="h-4 w-4 mr-1" />
@@ -111,7 +159,7 @@ export const CrmListItem: React.FC<CrmListItemProps> = ({ contact, onComposeEmai
                     </div>
                 </div>
                  <div className="flex items-center text-gray-400">
-                    <span>Details</span>
+                    <span>{isExpanded ? 'Less' : 'Details'}</span>
                     {isExpanded ? <ChevronUpIcon /> : <ChevronDownIcon />}
                 </div>
             </div>
@@ -120,25 +168,47 @@ export const CrmListItem: React.FC<CrmListItemProps> = ({ contact, onComposeEmai
                  <div className="p-4 border-t border-gray-700">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <h4 className="text-lg font-semibold text-white mb-2">Contact Actions</h4>
-                            <div className="flex flex-wrap gap-2">
-                                {contact.phone && (
-                                    <a href={`https://wa.me/${sanitizedPhone}`} target="_blank" rel="noopener noreferrer" className="flex-1 sm:flex-grow-0 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-md transition-colors flex items-center justify-center text-sm" aria-label={`Message on WhatsApp`}>
-                                        <WhatsAppIcon/> <span className="ml-2 hidden sm:inline">WhatsApp</span>
-                                    </a>
+                            <div className="flex justify-between items-center mb-2">
+                                <h4 className="text-lg font-semibold text-white">Contact Actions</h4>
+                                {!isEditing && (
+                                    <button onClick={handleEditClick} className="text-xs flex items-center text-brand-light hover:text-white bg-base-300 px-2 py-1 rounded">
+                                        <EditIcon className="h-4 w-4 mr-1"/> Edit Info
+                                    </button>
                                 )}
-                                {contact.phone && (
-                                    <a href={`tel:${sanitizedPhone}`} className="flex-1 sm:flex-grow-0 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-md transition-colors flex items-center justify-center text-sm" aria-label={`Call`}>
-                                        <PhoneIcon/> <span className="ml-2 hidden sm:inline">Call</span>
-                                    </a>
-                                )}
-                                <button onClick={() => onComposeEmail(contact)} disabled={!contact.email || hasBeenEmailed} className="flex-1 sm:flex-grow-0 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-3 rounded-md transition-colors flex items-center justify-center text-sm disabled:bg-gray-500">
-                                    <EmailIcon className="h-4 w-4" /> <span className="ml-2 hidden sm:inline">{hasBeenEmailed ? 'Emailed' : 'Email'}</span>
-                                </button>
-                                <button onClick={() => onRemoveFromCrm(contact.id)} className="flex-1 sm:flex-grow-0 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-md transition-colors flex items-center justify-center text-sm" aria-label={`Remove from CRM`}>
-                                    <TrashIcon /> <span className="ml-2 hidden sm:inline">Remove</span>
-                                </button>
                             </div>
+                            
+                            {isEditing ? (
+                                <div className="flex flex-col gap-4 mt-4">
+                                     <button onClick={handleSaveEdit} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-md transition-colors flex items-center justify-center">
+                                        <CheckIcon /> <span className="ml-2">Save Changes</span>
+                                     </button>
+                                     <button onClick={handleCancelEdit} className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-3 rounded-md transition-colors flex items-center justify-center">
+                                        <CancelIcon /> <span className="ml-2">Cancel</span>
+                                     </button>
+                                </div>
+                            ) : (
+                                <div className="flex flex-wrap gap-2">
+                                    {contact.phone && (
+                                        <a href={`https://wa.me/${sanitizedPhone}`} target="_blank" rel="noopener noreferrer" className="flex-1 sm:flex-grow-0 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-md transition-colors flex items-center justify-center text-sm" aria-label={`Message on WhatsApp`}>
+                                            <WhatsAppIcon/> <span className="ml-2 hidden sm:inline">WhatsApp</span>
+                                        </a>
+                                    )}
+                                    {contact.phone && (
+                                        <a href={`tel:${sanitizedPhone}`} className="flex-1 sm:flex-grow-0 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-md transition-colors flex items-center justify-center text-sm" aria-label={`Call`}>
+                                            <PhoneIcon/> <span className="ml-2 hidden sm:inline">Call</span>
+                                        </a>
+                                    )}
+                                    <button onClick={() => onComposeEmail(contact)} disabled={!contact.email || hasBeenEmailed} className="flex-1 sm:flex-grow-0 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-3 rounded-md transition-colors flex items-center justify-center text-sm disabled:bg-gray-500">
+                                        <EmailIcon className="h-4 w-4" /> <span className="ml-2 hidden sm:inline">{hasBeenEmailed ? 'Emailed' : 'Email'}</span>
+                                    </button>
+                                    <button onClick={() => onRemoveFromCrm(contact.id)} className="flex-1 sm:flex-grow-0 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-md transition-colors flex items-center justify-center text-sm" aria-label={`Remove from CRM`}>
+                                        <TrashIcon /> <span className="ml-2 hidden sm:inline">Remove</span>
+                                    </button>
+                                </div>
+                            )}
+                            
+                            {!isEditing && (
+                            <>
                              <div className="mt-4">
                                 <label htmlFor={`status-${contact.id}`} className="block text-sm font-medium text-base-content mb-1">Lead Status</label>
                                 <select
@@ -166,9 +236,39 @@ export const CrmListItem: React.FC<CrmListItemProps> = ({ contact, onComposeEmai
                                 </select>
                                 </div>
                             )}
+                            </>
+                            )}
                         </div>
                         <div>
-                           {contact.website && <a href={contact.website} target="_blank" rel="noopener noreferrer" className="text-brand-light hover:text-white hover:underline flex items-center mb-4"><WebsiteIcon /> <span className="ml-2">Visit Website</span></a>}
+                           <h4 className="text-lg font-semibold text-white mb-2">Contact Info</h4>
+                           {isEditing ? (
+                               <div className="space-y-3 bg-base-300 p-3 rounded-md">
+                                    <div>
+                                        <label className="text-xs text-gray-400 block">Phone</label>
+                                        <input type="text" value={formData.phone} onChange={e => handleInputChange('phone', e.target.value)} className="w-full bg-base-200 border border-gray-600 rounded px-2 py-1 text-white"/>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-400 block">Email</label>
+                                        <input type="text" value={formData.email} onChange={e => handleInputChange('email', e.target.value)} className="w-full bg-base-200 border border-gray-600 rounded px-2 py-1 text-white"/>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-400 block">Website</label>
+                                        <input type="text" value={formData.website} onChange={e => handleInputChange('website', e.target.value)} className="w-full bg-base-200 border border-gray-600 rounded px-2 py-1 text-white"/>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-400 block">Address</label>
+                                        <input type="text" value={formData.address} onChange={e => handleInputChange('address', e.target.value)} className="w-full bg-base-200 border border-gray-600 rounded px-2 py-1 text-white"/>
+                                    </div>
+                               </div>
+                           ) : (
+                               <div className="space-y-2 mb-4">
+                                   {contact.phone && <p className="text-gray-300 flex items-center"><PhoneIcon className="h-4 w-4 mr-2"/> {contact.phone}</p>}
+                                   {contact.email && <p className="text-gray-300 flex items-center"><EmailIcon className="h-4 w-4 mr-2"/> {contact.email}</p>}
+                                   {contact.website && <a href={contact.website} target="_blank" rel="noopener noreferrer" className="text-brand-light hover:text-white hover:underline flex items-center"><WebsiteIcon className="h-4 w-4 mr-2"/> Visit Website</a>}
+                                   {contact.address && <p className="text-gray-300 flex items-start"><LocationIcon className="h-4 w-4 mr-2 mt-1"/> <span>{contact.address}</span></p>}
+                               </div>
+                           )}
+
                            <AddNoteForm onAddNote={(note) => onAddNote(contact.id, note)} />
                         </div>
                     </div>

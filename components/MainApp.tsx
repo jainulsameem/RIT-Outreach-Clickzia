@@ -242,6 +242,24 @@ export function MainApp() {
     }
   };
 
+  const handleUpdateContactDetails = async (contactId: string, updates: Partial<CrmContact>) => {
+    const contact = crmContacts.find(c => c.id === contactId);
+    if (contact) {
+        const updatedContact = {
+            ...contact,
+            ...updates,
+            activities: [{ 
+                id: Date.now().toString(), 
+                type: 'note' as const, 
+                content: `Contact details updated.`, 
+                timestamp: new Date().toISOString() 
+            }, ...contact.activities]
+        };
+        setCrmContacts(prev => prev.map(c => c.id === contactId ? updatedContact : c));
+        await upsertContactToDb(updatedContact);
+    }
+  };
+
   const handleAddNote = async (contactId: string, note: string) => {
     const contact = crmContacts.find(c => c.id === contactId);
     if (contact) {
@@ -394,7 +412,7 @@ export function MainApp() {
           <section>
             {error && <div className="bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded-md mb-6" role="alert">{error}</div>}
             
-            {activeTab === 'crm' && <CrmList contacts={filteredAndSortedContacts} onComposeEmail={handleComposeEmail} emailedBusinessIds={emailedBusinessIds} onRemoveFromCrm={handleRemoveFromCrm} onUpdateStatus={handleUpdateStatus} onAddNote={handleAddNote} users={users} currentUser={currentUser} onAssignContact={handleAssignContact} />}
+            {activeTab === 'crm' && <CrmList contacts={filteredAndSortedContacts} onComposeEmail={handleComposeEmail} emailedBusinessIds={emailedBusinessIds} onRemoveFromCrm={handleRemoveFromCrm} onUpdateStatus={handleUpdateStatus} onAddNote={handleAddNote} users={users} currentUser={currentUser} onAssignContact={handleAssignContact} onUpdateContactDetails={handleUpdateContactDetails} />}
             
             {activeTab === 'search' && (
                   <div>

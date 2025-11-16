@@ -1,3 +1,4 @@
+
 import React from 'react';
 import type { CrmContact, LeadStatus, User } from '../types';
 import { CrmListItem } from './CrmListItem';
@@ -12,9 +13,10 @@ interface CrmListProps {
     users: User[];
     currentUser: User | null;
     onAssignContact: (contactId: string, userId: string | 'unassigned') => void;
+    onUpdateContactDetails: (contactId: string, updates: Partial<CrmContact>) => void;
 }
 
-export const CrmList: React.FC<CrmListProps> = ({ contacts, onComposeEmail, emailedBusinessIds, onRemoveFromCrm, onUpdateStatus, onAddNote, users, currentUser, onAssignContact }) => {
+export const CrmList: React.FC<CrmListProps> = ({ contacts, onComposeEmail, emailedBusinessIds, onRemoveFromCrm, onUpdateStatus, onAddNote, users, currentUser, onAssignContact, onUpdateContactDetails }) => {
     if (contacts.length === 0) {
         return (
             <div className="text-center py-10 px-4">
@@ -37,6 +39,7 @@ export const CrmList: React.FC<CrmListProps> = ({ contacts, onComposeEmail, emai
                     users={users}
                     currentUser={currentUser}
                     onAssignContact={onAssignContact}
+                    onUpdateContactDetails={onUpdateContactDetails}
                 />
             ))}
         </ul>
