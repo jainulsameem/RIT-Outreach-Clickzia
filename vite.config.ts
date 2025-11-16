@@ -17,6 +17,9 @@ export default defineConfig(({ mode }) => {
   
   const supabaseKey = env.VITE_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY || env.NEXT_PUBLIC_SUPABASE_ANON_KEY || defaultKey;
   const apiKey = env.VITE_API_KEY || env.API_KEY || '';
+  
+  // Added user provided Google Client ID
+  const googleClientId = env.VITE_GOOGLE_CLIENT_ID || '946355631103-sro9uveki04kjjf1d6d11jrm7vij0bbh.apps.googleusercontent.com';
 
   return {
     plugins: [react()],
@@ -25,6 +28,7 @@ export default defineConfig(({ mode }) => {
       'process.env.API_KEY': JSON.stringify(apiKey),
       'process.env.SUPABASE_URL': JSON.stringify(supabaseUrl),
       'process.env.SUPABASE_ANON_KEY': JSON.stringify(supabaseKey),
+      'process.env.GOOGLE_CLIENT_ID': JSON.stringify(googleClientId),
     }
   }
 })
