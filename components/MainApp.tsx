@@ -11,7 +11,7 @@ import { AddEditUserModal } from './AddEditUserModal';
 import { SettingsIcon, UserIcon, DownloadIcon } from './icons';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { useAuth } from '../context/AuthContext';
-import { findBusinesses, findBusinessesOnFacebook } from '../services/geminiService';
+import { findBusinesses, findBusinessesOnFacebook, findDecisionMakers } from '../services/geminiService';
 import { supabase } from '../services/supabaseClient';
 import type { Business, Settings, CrmContact, LeadStatus, User, CrmFilters, GroundingChunk, SearchParams } from '../types';
 
@@ -141,9 +141,18 @@ export function MainApp() {
     };
 
     try {
-      const { businesses: results } = params.source === 'facebook'
-        ? await findBusinessesOnFacebook(params.industry, params.keywords, params.location, params.numberOfResults, [], onBatchLoaded)
-        : await findBusinesses(params.industry, params.keywords, params.location, geolocation.coords, params.profileStatus, params.numberOfResults, [], onBatchLoaded);
+      let results: Business[] = [];
+      
+      if (params.source === 'facebook') {
+        const response = await findBusinessesOnFacebook(params.industry, params.keywords, params.location, params.numberOfResults, [], onBatchLoaded);
+        results = response.businesses;
+      } else if (params.source === 'linkedin') {
+        const response = await findDecisionMakers(params.industry, params.keywords, params.location, params.numberOfResults, [], onBatchLoaded);
+        results = response.businesses;
+      } else {
+        const response = await findBusinesses(params.industry, params.keywords, params.location, geolocation.coords, params.profileStatus, params.numberOfResults, [], onBatchLoaded);
+        results = response.businesses;
+      }
       
       if (results.length >= params.numberOfResults) {
         setCanLoadMore(true);
@@ -160,7 +169,7 @@ export function MainApp() {
     
     setIsLoadingMore(true);
     setError(null);
-    const existingBusinessNames = businesses.map(b => b.name);
+    const existingBusinessNames = businesses.map(b => lastSearchParams.source === 'linkedin' ? `${b.contactName}-${b.name}` : b.name);
 
     const onBatchLoaded = (newData: Business[], newChunks: GroundingChunk[]) => {
          setBusinesses(prev => [...prev, ...newData]);
@@ -168,9 +177,18 @@ export function MainApp() {
     };
 
     try {
-        const { businesses: newResults } = lastSearchParams.source === 'facebook'
-            ? await findBusinessesOnFacebook(lastSearchParams.industry, lastSearchParams.keywords, lastSearchParams.location, lastSearchParams.numberOfResults, existingBusinessNames, onBatchLoaded)
-            : await findBusinesses(lastSearchParams.industry, lastSearchParams.keywords, lastSearchParams.location, geolocation.coords, lastSearchParams.profileStatus, lastSearchParams.numberOfResults, existingBusinessNames, onBatchLoaded);
+        let newResults: Business[] = [];
+        
+        if (lastSearchParams.source === 'facebook') {
+            const response = await findBusinessesOnFacebook(lastSearchParams.industry, lastSearchParams.keywords, lastSearchParams.location, lastSearchParams.numberOfResults, existingBusinessNames, onBatchLoaded);
+            newResults = response.businesses;
+        } else if (lastSearchParams.source === 'linkedin') {
+            const response = await findDecisionMakers(lastSearchParams.industry, lastSearchParams.keywords, lastSearchParams.location, lastSearchParams.numberOfResults, existingBusinessNames, onBatchLoaded);
+            newResults = response.businesses;
+        } else {
+            const response = await findBusinesses(lastSearchParams.industry, lastSearchParams.keywords, lastSearchParams.location, geolocation.coords, lastSearchParams.profileStatus, lastSearchParams.numberOfResults, existingBusinessNames, onBatchLoaded);
+            newResults = response.businesses;
+        }
         
         if (newResults.length === 0) {
             setCanLoadMore(false);
@@ -311,8 +329,20 @@ export function MainApp() {
         if (field === null || field === undefined) return '';
         return `"${String(field).replace(/"/g, '""')}"`;
     };
-    const headers = ['ID', 'Name', 'Address', 'Phone', 'Website', 'Email', 'Profile Status', 'Source'];
-    const rows = businesses.map(b => [ escapeCsvField(b.id), escapeCsvField(b.name), escapeCsvField(b.address), escapeCsvField(b.phone), escapeCsvField(b.website), escapeCsvField(b.email), escapeCsvField(b.profileStatus), escapeCsvField(b.source) ].join(','));
+    const headers = ['ID', 'Name', 'Contact Name', 'Contact Role', 'Address', 'Phone', 'Website', 'Email', 'LinkedIn', 'Profile Status', 'Source'];
+    const rows = businesses.map(b => [ 
+        escapeCsvField(b.id), 
+        escapeCsvField(b.name),
+        escapeCsvField(b.contactName),
+        escapeCsvField(b.contactRole),
+        escapeCsvField(b.address), 
+        escapeCsvField(b.phone), 
+        escapeCsvField(b.website), 
+        escapeCsvField(b.email), 
+        escapeCsvField(b.linkedinUrl),
+        escapeCsvField(b.profileStatus), 
+        escapeCsvField(b.source) 
+    ].join(','));
     const csvContent = [headers.join(','), ...rows].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
     const link = document.createElement('a');

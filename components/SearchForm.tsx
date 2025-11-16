@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { SearchIcon, LocationIcon, FacebookIcon } from './icons';
+import { SearchIcon, LocationIcon, FacebookIcon, LinkedInIcon } from './icons';
 import { getLocationSuggestions } from '../services/geminiService';
 import type { SearchParams, SearchSource, ProfileStatus } from '../types';
 
@@ -69,12 +69,15 @@ export const SearchForm: React.FC<SearchFormProps> = ({ onSearch, isLoading }) =
             
             <div>
                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Source</label>
-                <div className="flex bg-base-300/50 rounded-xl p-1 border border-white/5">
+                <div className="flex flex-col sm:flex-row bg-base-300/50 rounded-xl p-1 border border-white/5 gap-1">
                     <button type="button" onClick={() => setSource('google')} disabled={isLoading} className={`flex-1 text-sm font-medium py-2.5 px-3 rounded-lg transition-all flex items-center justify-center gap-2 ${source === 'google' ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
                         <LocationIcon /> Google Maps
                     </button>
                     <button type="button" onClick={() => setSource('facebook')} disabled={isLoading} className={`flex-1 text-sm font-medium py-2.5 px-3 rounded-lg transition-all flex items-center justify-center gap-2 ${source === 'facebook' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
                         <FacebookIcon /> Facebook
+                    </button>
+                    <button type="button" onClick={() => setSource('linkedin')} disabled={isLoading} className={`flex-1 text-sm font-medium py-2.5 px-3 rounded-lg transition-all flex items-center justify-center gap-2 ${source === 'linkedin' ? 'bg-[#0a66c2] text-white shadow-lg shadow-blue-600/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                        <LinkedInIcon /> Decision Makers
                     </button>
                 </div>
             </div>
@@ -105,7 +108,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({ onSearch, isLoading }) =
                         id="keywords"
                         value={keywords}
                         onChange={(e) => setKeywords(e.target.value)}
-                        placeholder="e.g., 'pizza', 'dentist'"
+                        placeholder={source === 'linkedin' ? "e.g., 'CEO', 'Founder'" : "e.g., 'pizza', 'dentist'"}
                         className="w-full bg-base-300/50 border border-gray-600 rounded-xl px-4 py-3.5 text-white placeholder-gray-500 focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition-all hover:bg-base-300/80"
                         disabled={isLoading}
                     />

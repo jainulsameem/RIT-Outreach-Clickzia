@@ -25,7 +25,10 @@ export interface Business {
   website?: string;
   email?: string;
   profileStatus?: 'claimed' | 'unclaimed' | 'unknown';
-  source?: 'google' | 'facebook';
+  source?: 'google' | 'facebook' | 'linkedin';
+  contactName?: string;
+  contactRole?: string;
+  linkedinUrl?: string;
 }
 
 // Fix: Update GroundingChunk to support both 'maps' and 'web' source types.
@@ -87,7 +90,7 @@ export interface CrmFilters {
   sortOrder: 'newest' | 'oldest';
 }
 
-export type SearchSource = 'google' | 'facebook';
+export type SearchSource = 'google' | 'facebook' | 'linkedin';
 export type ProfileStatus = 'all' | 'claimed' | 'unclaimed';
 
 // New: Shared SearchParams type

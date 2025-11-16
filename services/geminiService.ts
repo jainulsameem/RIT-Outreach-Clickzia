@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 import type { Business, Coords, GroundingChunk } from '../types';
 
@@ -282,6 +283,121 @@ export const findBusinessesOnFacebook = async (
   }
 
   return { businesses: allBusinesses, groundingChunks: allGroundingChunks };
+};
+
+export const findDecisionMakers = async (
+  industry: string,
+  keywords: string,
+  location: string,
+  numberOfResults: number,
+  existingNames: string[] = [],
+  onBatchLoaded?: (businesses: Business[], groundingChunks: GroundingChunk[]) => void
+): Promise<{ businesses: Business[], groundingChunks: GroundingChunk[] | undefined }> => {
+    
+  let allProfiles: Business[] = [];
+  let allGroundingChunks: GroundingChunk[] = [];
+  let currentExclusionList = [...existingNames];
+  let loopCount = 0;
+  const MAX_LOOPS = 8;
+
+  while (allProfiles.length < numberOfResults && loopCount < MAX_LOOPS) {
+    const remainingNeeded = numberOfResults - allProfiles.length;
+    const requestCount = Math.max(5, Math.min(remainingNeeded + 2, 15));
+
+    const variationInstruction = loopCount === 0
+      ? `Search for decision makers in '${location}'.`
+      : `Vary your search. Look for different job titles (e.g., 'Director', 'Partner', 'Manager') or specific sub-industries in '${location}' to find NEW people.`;
+
+    // Specific prompt to target LinkedIn profiles via Google Search grounding
+    const finalPrompt = `
+      Task: Find ${requestCount} NEW LinkedIn profiles for decision makers (CEO, Founder, Owner, Director, Partner).
+      
+      Target:
+      - Industry/Niche: ${industry === 'All' ? 'Any Business' : industry}
+      - Location: ${location}
+      - Keywords: ${keywords} (use these to find specific companies or roles)
+      
+      Already Found (Exclude): ${JSON.stringify(currentExclusionList.slice(-50))}
+      
+      Instructions:
+      1. ${variationInstruction}
+      2. Use Google Search to find "site:linkedin.com/in" results matching the criteria.
+      3. Extract the following details for each person:
+         - Name
+         - Job Title (Role)
+         - Company Name
+         - LinkedIn Profile URL
+         - Estimated Location/Address from profile
+      4. Return ONLY valid JSON.
+      
+      Output Format:
+      {
+        "businesses": [
+          {
+            "id": "li-...",
+            "name": "Company Name",
+            "contactName": "Person Name",
+            "contactRole": "Job Title",
+            "linkedinUrl": "https://linkedin.com/in/...",
+            "address": "City, State",
+            "phone": null,
+            "email": null,
+            "website": null
+          }
+        ]
+      }
+    `;
+
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: finalPrompt,
+        config: {
+          tools: [{googleSearch: {}}],
+        },
+      });
+      
+      const data = parseJsonResponse(response.text || "");
+      
+      let newProfiles = (data && data.businesses && Array.isArray(data.businesses))
+        ? data.businesses.map((b: any) => ({ 
+            ...b, 
+            source: 'linkedin',
+            id: `li-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+          }))
+        : [];
+      
+      // Filter duplicates based on contact name + company to be unique
+      newProfiles = newProfiles.filter((b: Business) => {
+         const uniqueKey = `${b.contactName}-${b.name}`;
+         if (currentExclusionList.includes(uniqueKey)) return false;
+         return true;
+      });
+
+      if (newProfiles.length > 0) {
+        allProfiles = [...allProfiles, ...newProfiles];
+        currentExclusionList = [...currentExclusionList, ...newProfiles.map((b: Business) => `${b.contactName}-${b.name}`)];
+
+        const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks as unknown as GroundingChunk[];
+        if (chunks) {
+            allGroundingChunks = [...allGroundingChunks, ...chunks];
+        }
+
+        if (onBatchLoaded) {
+            onBatchLoaded(newProfiles, chunks || []);
+        }
+      } else {
+        if (loopCount > 3) break;
+      }
+
+    } catch (error) {
+      console.error(`Error in LinkedIn search iteration ${loopCount}:`, error);
+      break;
+    }
+    loopCount++;
+  }
+
+  return { businesses: allProfiles, groundingChunks: allGroundingChunks };
 };
 
 

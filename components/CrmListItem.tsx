@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import type { CrmContact, LeadStatus, Activity, Business, User } from '../types';
 import { leadStatuses } from '../types';
-import { EmailIcon, PhoneIcon, WebsiteIcon, WhatsAppIcon, TrashIcon, ChevronDownIcon, ChevronUpIcon, NoteIcon, StatusChangeIcon, CreatedIcon, UserIcon, AssignUserIcon, EditIcon, CheckIcon, CancelIcon, LocationIcon } from './icons';
+import { EmailIcon, PhoneIcon, WebsiteIcon, WhatsAppIcon, TrashIcon, ChevronDownIcon, ChevronUpIcon, NoteIcon, StatusChangeIcon, CreatedIcon, UserIcon, AssignUserIcon, EditIcon, CheckIcon, CancelIcon, LocationIcon, LinkedInIcon } from './icons';
 
 interface CrmListItemProps {
     contact: CrmContact;
@@ -103,7 +103,10 @@ export const CrmListItem: React.FC<CrmListItemProps> = ({ contact, onComposeEmai
         phone: contact.phone || '',
         email: contact.email || '',
         website: contact.website || '',
-        address: contact.address || ''
+        address: contact.address || '',
+        contactName: contact.contactName || '',
+        contactRole: contact.contactRole || '',
+        linkedinUrl: contact.linkedinUrl || ''
     });
 
     const sanitizedPhone = contact.phone ? contact.phone.replace(/[^0-9+]/g, '') : '';
@@ -116,7 +119,10 @@ export const CrmListItem: React.FC<CrmListItemProps> = ({ contact, onComposeEmai
             phone: contact.phone || '',
             email: contact.email || '',
             website: contact.website || '',
-            address: contact.address || ''
+            address: contact.address || '',
+            contactName: contact.contactName || '',
+            contactRole: contact.contactRole || '',
+            linkedinUrl: contact.linkedinUrl || ''
         });
         setIsEditing(true);
         setIsExpanded(true);
@@ -160,6 +166,11 @@ export const CrmListItem: React.FC<CrmListItemProps> = ({ contact, onComposeEmai
                         )}
                         {!isEditing && <LeadStatusBadge status={contact.status} />}
                     </div>
+                    
+                    {!isEditing && contact.contactName && (
+                         <p className="text-sm text-brand-light mt-1">👤 {contact.contactName} <span className="text-gray-500 text-xs">• {contact.contactRole}</span></p>
+                    )}
+
                      <div className="flex items-center text-xs text-gray-400 mt-1.5">
                         <UserIcon className="h-3 w-3 mr-1.5" />
                         <span className="font-medium">{assignedUser ? `Owner: ${assignedUser.username}` : 'Unassigned'}</span>
@@ -268,6 +279,18 @@ export const CrmListItem: React.FC<CrmListItemProps> = ({ contact, onComposeEmai
                                         <label className="text-xs text-gray-400 font-semibold block mb-1">Address</label>
                                         <input type="text" value={formData.address} onChange={e => handleInputChange('address', e.target.value)} className="w-full bg-base-100 border border-gray-600 rounded px-3 py-1.5 text-white text-sm focus:ring-1 focus:ring-brand-primary"/>
                                     </div>
+                                    <div>
+                                        <label className="text-xs text-gray-400 font-semibold block mb-1">Contact Name</label>
+                                        <input type="text" value={formData.contactName} onChange={e => handleInputChange('contactName', e.target.value)} className="w-full bg-base-100 border border-gray-600 rounded px-3 py-1.5 text-white text-sm focus:ring-1 focus:ring-brand-primary"/>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-400 font-semibold block mb-1">Contact Role</label>
+                                        <input type="text" value={formData.contactRole} onChange={e => handleInputChange('contactRole', e.target.value)} className="w-full bg-base-100 border border-gray-600 rounded px-3 py-1.5 text-white text-sm focus:ring-1 focus:ring-brand-primary"/>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-400 font-semibold block mb-1">LinkedIn URL</label>
+                                        <input type="text" value={formData.linkedinUrl} onChange={e => handleInputChange('linkedinUrl', e.target.value)} className="w-full bg-base-100 border border-gray-600 rounded px-3 py-1.5 text-white text-sm focus:ring-1 focus:ring-brand-primary"/>
+                                    </div>
                                </div>
                            ) : (
                                <div className="space-y-3 mb-6 bg-base-300/20 p-4 rounded-lg border border-white/5">
@@ -275,6 +298,7 @@ export const CrmListItem: React.FC<CrmListItemProps> = ({ contact, onComposeEmai
                                    {contact.email ? <p className="text-gray-300 flex items-center text-sm"><EmailIcon className="h-4 w-4 mr-3 text-gray-500"/> {contact.email}</p> : <p className="text-gray-600 italic text-sm ml-7">No email</p>}
                                    {contact.website ? <a href={getExternalUrl(contact.website)} target="_blank" rel="noopener noreferrer" className="text-brand-light hover:text-white hover:underline flex items-center text-sm"><WebsiteIcon className="h-4 w-4 mr-3 text-gray-500"/> {contact.website}</a> : <p className="text-gray-600 italic text-sm ml-7">No website</p>}
                                    {contact.address ? <p className="text-gray-300 flex items-start text-sm"><LocationIcon className="h-4 w-4 mr-3 text-gray-500 mt-0.5"/> <span>{contact.address}</span></p> : <p className="text-gray-600 italic text-sm ml-7">No address</p>}
+                                   {contact.linkedinUrl ? <a href={getExternalUrl(contact.linkedinUrl)} target="_blank" rel="noopener noreferrer" className="text-[#0a66c2] hover:text-white hover:underline flex items-center text-sm"><LinkedInIcon className="h-4 w-4 mr-3 text-[#0a66c2]"/> LinkedIn Profile</a> : <p className="text-gray-600 italic text-sm ml-7">No LinkedIn</p>}
                                </div>
                            )}
 

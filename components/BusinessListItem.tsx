@@ -1,7 +1,7 @@
 
 import React from 'react';
 import type { Business } from '../types';
-import { EmailIcon, PhoneIcon, WebsiteIcon, LocationIcon, AddToCrmIcon, FacebookIcon } from './icons';
+import { EmailIcon, PhoneIcon, WebsiteIcon, LocationIcon, AddToCrmIcon, FacebookIcon, LinkedInIcon } from './icons';
 
 interface BusinessListItemProps {
     business: Business;
@@ -39,14 +39,23 @@ export const BusinessListItem: React.FC<BusinessListItemProps> = ({ business, on
 
             <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0 sm:gap-6">
                 <div className="flex-grow min-w-0">
-                    <div className="flex items-center mb-1">
+                    <div className="flex items-center mb-1 flex-wrap">
                         <h3 className="text-lg font-bold text-white truncate pr-2 flex items-center gap-2">
                             {business.name}
                              {business.source === 'facebook' && <FacebookIcon className="h-4 w-4 text-blue-400" />}
+                             {business.source === 'linkedin' && <LinkedInIcon className="h-4 w-4 text-[#0a66c2]" />}
                         </h3>
-                        {business.source !== 'facebook' && <ProfileStatusBadge status={business.profileStatus} />}
+                        {business.source !== 'facebook' && business.source !== 'linkedin' && <ProfileStatusBadge status={business.profileStatus} />}
                     </div>
                     
+                    {/* Decision Maker Info */}
+                    {business.contactName && (
+                        <div className="mb-3 flex items-center space-x-2 text-brand-light font-medium bg-brand-primary/5 w-fit px-2 py-1 rounded border border-brand-primary/20">
+                            <span className="text-sm">👤 {business.contactName}</span>
+                            {business.contactRole && <span className="text-xs text-gray-400">• {business.contactRole}</span>}
+                        </div>
+                    )}
+
                     {business.address && (
                         <p className="text-gray-400 text-sm flex items-center mb-3">
                             <LocationIcon /> <span className="ml-1.5 truncate">{business.address}</span>
@@ -62,6 +71,11 @@ export const BusinessListItem: React.FC<BusinessListItemProps> = ({ business, on
                         {business.website && (
                             <a href={getExternalUrl(business.website)} target="_blank" rel="noopener noreferrer" className="text-brand-light hover:text-white hover:underline flex items-center bg-brand-primary/10 px-2 py-1 rounded-md border border-brand-primary/20 transition-colors">
                                 <WebsiteIcon /> <span className="ml-2">Website</span>
+                            </a>
+                        )}
+                        {business.linkedinUrl && (
+                             <a href={getExternalUrl(business.linkedinUrl)} target="_blank" rel="noopener noreferrer" className="text-[#0a66c2] hover:text-white hover:underline flex items-center bg-[#0a66c2]/10 px-2 py-1 rounded-md border border-[#0a66c2]/20 transition-colors">
+                                <LinkedInIcon className="h-4 w-4" /> <span className="ml-2">LinkedIn</span>
                             </a>
                         )}
                     </div>
