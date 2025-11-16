@@ -327,34 +327,37 @@ export function MainApp() {
 
   // Helpers for conditional rendering to avoid JSX syntax errors in returns
   const renderLoadingState = () => (
-    <div className="text-center py-10">
-        <svg className="animate-spin mx-auto h-10 w-10 text-brand-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+    <div className="text-center py-20 glass-panel rounded-xl mx-auto max-w-md">
+        <svg className="animate-spin mx-auto h-12 w-12 text-brand-primary mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
-        <p className="mt-4 text-white text-lg">Starting search...</p>
+        <p className="text-white text-xl font-medium">Scouring the web for prospects...</p>
+        <p className="text-gray-400 text-sm mt-2">This AI-powered search is finding real-time data.</p>
     </div>
   );
 
   const renderGroundingChunks = () => {
     if (!groundingChunks || groundingChunks.length === 0) return null;
     return (
-      <div className="mt-8 p-4 bg-base-200 rounded-lg">
-        <h4 className="text-lg font-semibold text-white mb-3">Data Sources</h4>
-        <ul className="space-y-2">
+      <div className="mt-8 p-6 glass-panel rounded-xl border-t border-brand-primary/20">
+        <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+            <svg className="w-5 h-5 text-brand-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            Source Intelligence
+        </h4>
+        <ul className="space-y-3">
           {groundingChunks.map((chunk, index) => {
             if (chunk.web) {
-              return <li key={index} className="text-sm text-gray-400"><a href={chunk.web.uri} target="_blank" rel="noopener noreferrer" className="text-brand-light hover:underline">{chunk.web.title || chunk.web.uri}</a></li>;
+              return <li key={index} className="text-sm text-gray-400 flex items-start gap-2"><span className="mt-1 text-brand-primary">•</span><a href={chunk.web.uri} target="_blank" rel="noopener noreferrer" className="text-brand-light hover:underline hover:text-white transition-colors">{chunk.web.title || chunk.web.uri}</a></li>;
             }
             if (chunk.maps) {
               return (
                 <li key={index} className="text-sm text-gray-400">
-                  <a href={chunk.maps.uri} target="_blank" rel="noopener noreferrer" className="text-brand-light hover:underline">{chunk.maps.title || chunk.maps.uri}</a>
+                  <a href={chunk.maps.uri} target="_blank" rel="noopener noreferrer" className="text-brand-light hover:underline hover:text-white transition-colors font-medium block mb-1">{chunk.maps.title || chunk.maps.uri}</a>
                   {chunk.maps.placeAnswerSources?.map((source, idx) => 
                     source.reviewSnippets?.map((snippet, sIndex) => (
-                      <div key={`${idx}-${sIndex}`} className="pl-4 mt-1 border-l-2 border-gray-700">
-                        <blockquote className="italic text-gray-500">"{snippet.snippet}"</blockquote>
-                        <a href={snippet.uri} target="_blank" rel="noopener noreferrer" className="text-brand-light hover:underline text-xs">{snippet.title}</a>
+                      <div key={`${idx}-${sIndex}`} className="pl-4 mt-2 border-l-2 border-brand-primary/30 py-1">
+                        <blockquote className="italic text-gray-500 text-xs">"{snippet.snippet}"</blockquote>
                       </div>
                     ))
                   )}
@@ -370,79 +373,102 @@ export function MainApp() {
 
   return (
     <React.Fragment>
-      <header className="bg-base-200 shadow-md">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-white">Rit Outreach by Click Zia</h1>
-          <div className="flex items-center gap-4">
+      <header className="sticky top-0 z-50 glass-header shadow-lg border-b border-white/5">
+        <div className="container mx-auto px-4 py-3 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg shadow-brand-primary/20">
+               <span className="text-white font-bold text-lg">R</span>
+            </div>
+            <div>
+                <h1 className="text-xl font-bold text-white tracking-tight leading-tight">Rit Outreach</h1>
+                <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Click Zia</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2 md:gap-4">
             {currentUser && (
-              <div className="flex items-center text-white">
-                <UserIcon className="h-5 w-5 mr-2" />
-                <span>{currentUser.username}</span>
+              <div className="hidden md:flex items-center text-gray-300 bg-base-300/50 px-3 py-1.5 rounded-full border border-white/5">
+                <UserIcon className="h-4 w-4 mr-2 text-brand-secondary" />
+                <span className="text-sm font-medium">{currentUser.username}</span>
               </div>
             )}
-            <button onClick={() => setIsSettingsModalOpen(true)} className="text-gray-300 hover:text-white p-2 rounded-full hover:bg-base-300 transition-colors" aria-label="Open settings">
+            <button onClick={() => setIsSettingsModalOpen(true)} className="text-gray-400 hover:text-white hover:bg-white/10 p-2 rounded-full transition-all" title="Settings">
               <SettingsIcon />
             </button>
-            <button onClick={logout} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-md transition-colors text-sm">
+            <button onClick={logout} className="text-sm font-medium text-red-400 hover:text-red-300 px-3 py-1.5 hover:bg-red-500/10 rounded-lg transition-all">
               Logout
             </button>
           </div>
         </div>
       </header>
       
-      <div className="container mx-auto p-4 md:p-8">
-        <div className="max-w-4xl mx-auto">
+      <div className="container mx-auto p-4 md:p-6 max-w-6xl">
           <section className="mb-8">
               <SearchForm onSearch={handleSearch} isLoading={isLoading || isLoadingMore} />
-              {geolocation.error && <p className="text-sm text-yellow-400 mt-2">Could not get your location: {geolocation.error.message}.</p>}
+              {geolocation.error && <p className="text-sm text-yellow-400 mt-2 bg-yellow-500/10 p-2 rounded-lg inline-block border border-yellow-500/20">⚠️ Could not get location: {geolocation.error.message}.</p>}
           </section>
 
-          <div className="mb-6 border-b border-gray-700">
-            <div className="flex space-x-4">
-              <button onClick={() => setActiveTab('search')} className={`py-2 px-4 text-lg font-medium transition-colors ${activeTab === 'search' ? 'text-brand-light border-b-2 border-brand-light' : 'text-gray-400 hover:text-white'}`}>Search Results</button>
-              <button onClick={() => setActiveTab('crm')} className={`py-2 px-4 text-lg font-medium transition-colors relative ${activeTab === 'crm' ? 'text-brand-light border-b-2 border-brand-light' : 'text-gray-400 hover:text-white'}`}>
-                My CRM <span className="absolute top-0 right-0 -mt-1 -mr-1 text-xs bg-brand-primary text-white rounded-full h-5 w-5 flex items-center justify-center">{crmContacts.length}</span>
+          <div className="mb-8 sticky top-[70px] z-40 backdrop-blur-md py-2 -mx-4 px-4 md:mx-0 md:px-0 md:static md:backdrop-blur-none">
+            <div className="flex p-1 bg-base-300/80 backdrop-blur-sm rounded-xl border border-white/5 shadow-inner w-full md:w-fit">
+              <button 
+                onClick={() => setActiveTab('search')} 
+                className={`flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 ${activeTab === 'search' ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/25' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+              >
+                Search Results
+              </button>
+              <button 
+                onClick={() => setActiveTab('crm')} 
+                className={`flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 relative ${activeTab === 'crm' ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/25' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+              >
+                My CRM 
+                {crmContacts.length > 0 && <span className="absolute top-1.5 right-1.5 flex h-2.5 w-2.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-accent opacity-75"></span><span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-brand-accent"></span></span>}
               </button>
               {currentUser?.role === 'admin' && (
-                <button onClick={() => setActiveTab('users')} className={`py-2 px-4 text-lg font-medium transition-colors ${activeTab === 'users' ? 'text-brand-light border-b-2 border-brand-light' : 'text-gray-400 hover:text-white'}`}>User Management</button>
+                <button 
+                    onClick={() => setActiveTab('users')} 
+                    className={`flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 ${activeTab === 'users' ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/25' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                >
+                    Users
+                </button>
               )}
             </div>
           </div>
 
-          <section>
-            {error && <div className="bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded-md mb-6" role="alert">{error}</div>}
+          <section className="min-h-[500px]">
+            {error && <div className="bg-red-500/10 border border-red-500/30 text-red-200 px-4 py-4 rounded-xl mb-6 shadow-lg backdrop-blur-sm" role="alert">{error}</div>}
             
             {activeTab === 'crm' && <CrmList contacts={filteredAndSortedContacts} onComposeEmail={handleComposeEmail} emailedBusinessIds={emailedBusinessIds} onRemoveFromCrm={handleRemoveFromCrm} onUpdateStatus={handleUpdateStatus} onAddNote={handleAddNote} users={users} currentUser={currentUser} onAssignContact={handleAssignContact} onUpdateContactDetails={handleUpdateContactDetails} />}
             
             {activeTab === 'search' && (
-                  <div>
+                  <div className="animate-fadeIn">
                     {isLoading && businesses.length === 0 ? renderLoadingState() : (
                       <React.Fragment>
                         {businesses.length > 0 && (
-                          <div className="flex justify-between items-center mb-4">
-                            <p className="text-gray-400">Found {businesses.length} prospects{isLoading ? " (still searching...)" : ""}.</p>
-                            <button onClick={handleDownloadCsv} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition-colors flex items-center"><DownloadIcon /><span className="ml-2">Download CSV</span></button>
+                          <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+                            <p className="text-gray-300 font-medium bg-base-300/50 px-4 py-2 rounded-full border border-white/5">Found <span className="text-white font-bold">{businesses.length}</span> prospects{isLoading ? " (scanning...)" : ""}</p>
+                            <button onClick={handleDownloadCsv} className="bg-green-600/90 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-xl transition-all flex items-center shadow-lg shadow-green-900/20 border border-green-500/30"><DownloadIcon /><span className="ml-2">Download CSV</span></button>
                           </div>
                         )}
                         <BusinessList businesses={businesses} onComposeEmail={handleComposeEmail} emailedBusinessIds={emailedBusinessIds} onAddToCrm={handleAddToCrm} crmContactIds={crmContactIds} />
                         
                         {isLoading && businesses.length > 0 && (
-                             <div className="flex justify-center py-4">
-                                <svg className="animate-spin h-6 w-6 text-brand-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                             <div className="flex flex-col items-center py-8">
+                                <svg className="animate-spin h-8 w-8 text-brand-accent mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                <span className="text-gray-400 text-sm animate-pulse">Finding more results...</span>
                              </div>
                         )}
 
                         {renderGroundingChunks()}
 
                         {!isLoading && canLoadMore && (
-                            <div className="flex justify-center mt-6">
+                            <div className="flex justify-center mt-10">
                                 <button
                                     onClick={handleLoadMore}
                                     disabled={isLoadingMore}
-                                    className="bg-brand-secondary hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-md transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center"
+                                    className="bg-base-200 hover:bg-base-300 text-white border border-white/10 font-bold py-3 px-8 rounded-xl transition-all shadow-lg hover:shadow-brand-primary/10 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center w-full sm:w-auto"
                                 >
                                     {isLoadingMore ? (
-                                        <span className="flex items-center"><svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Loading More...</span>
+                                        <span className="flex items-center"><svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Digging deeper...</span>
                                     ) : 'Load More Results'}
                                 </button>
                             </div>
@@ -456,7 +482,6 @@ export function MainApp() {
                   <UserManagement crmContacts={crmContacts} onAddUser={() => { setEditingUser(null); setIsUserModalOpen(true); }} onEditUser={(user) => { setEditingUser(user); setIsUserModalOpen(true); }} onRemoveUser={handleRemoveUser} />
                 )}
           </section>
-        </div>
       </div>
 
       <SettingsModal isOpen={isSettingsModalOpen} onClose={() => setIsSettingsModalOpen(false)} settings={settings} onSave={saveSettings} />

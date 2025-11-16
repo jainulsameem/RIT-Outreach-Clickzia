@@ -18,20 +18,20 @@ interface CrmListItemProps {
 }
 
 const statusColors: Record<LeadStatus, string> = {
-    'New': 'bg-blue-600 text-blue-100',
-    'Contacted': 'bg-cyan-600 text-cyan-100',
-    'Interested': 'bg-green-600 text-green-100',
-    'Follow-up': 'bg-yellow-600 text-yellow-100',
-    'Not Interested': 'bg-gray-500 text-gray-100',
-    'Converted': 'bg-purple-600 text-purple-100',
+    'New': 'bg-blue-900/50 text-blue-200 border-blue-500/30',
+    'Contacted': 'bg-cyan-900/50 text-cyan-200 border-cyan-500/30',
+    'Interested': 'bg-green-900/50 text-green-200 border-green-500/30',
+    'Follow-up': 'bg-yellow-900/50 text-yellow-200 border-yellow-500/30',
+    'Not Interested': 'bg-gray-700/50 text-gray-400 border-gray-500/30',
+    'Converted': 'bg-purple-900/50 text-purple-200 border-purple-500/30',
 };
 
 const LeadStatusBadge: React.FC<{ status: LeadStatus }> = ({ status }) => (
-    <span className={`ml-3 text-xs font-bold inline-block py-1 px-3 uppercase rounded-full ${statusColors[status]}`}>{status}</span>
+    <span className={`ml-3 text-[10px] font-bold tracking-wider py-1 px-2.5 uppercase rounded-full border ${statusColors[status]}`}>{status}</span>
 );
 
 const ActivityIcon: React.FC<{ type: Activity['type'] }> = ({ type }) => {
-    const iconProps = { className: "h-5 w-5 text-gray-400" };
+    const iconProps = { className: "h-4 w-4 text-gray-400" };
     switch (type) {
         case 'created': return <CreatedIcon {...iconProps} />;
         case 'note': return <NoteIcon {...iconProps} />;
@@ -43,17 +43,17 @@ const ActivityIcon: React.FC<{ type: Activity['type'] }> = ({ type }) => {
 };
 
 const ActivityLog: React.FC<{ activities: Activity[] }> = ({ activities }) => (
-    <div className="mt-4">
-        <h4 className="text-lg font-semibold text-white mb-2">Activity & History</h4>
-        <div className="border-l-2 border-gray-700 pl-4 space-y-4 max-h-60 overflow-y-auto">
+    <div className="mt-6 pt-4 border-t border-white/5">
+        <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">History</h4>
+        <div className="border-l border-gray-700 pl-4 space-y-4 max-h-60 overflow-y-auto custom-scrollbar">
             {activities.map(activity => (
                 <div key={activity.id} className="relative">
-                     <div className="absolute -left-5 top-1 h-2 w-2 rounded-full bg-brand-primary"></div>
+                     <div className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full bg-brand-surface border border-brand-primary/50 shadow-[0_0_10px_rgba(99,102,241,0.5)]"></div>
                      <div className="flex items-start space-x-3">
-                        <ActivityIcon type={activity.type} />
+                        <div className="mt-0.5"><ActivityIcon type={activity.type} /></div>
                         <div className="flex-1">
-                            <p className="text-sm text-gray-300 whitespace-pre-wrap">{activity.content}</p>
-                            <p className="text-xs text-gray-500 mt-1">
+                            <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">{activity.content}</p>
+                            <p className="text-[10px] text-gray-500 mt-1 font-mono">
                                 {new Date(activity.timestamp).toLocaleString(undefined, {
                                     dateStyle: 'medium',
                                     timeStyle: 'short'
@@ -78,17 +78,19 @@ const AddNoteForm: React.FC<{ onAddNote: (note: string) => void }> = ({ onAddNot
     };
     return (
         <form onSubmit={handleSubmit} className="mt-4">
-            <h4 className="text-lg font-semibold text-white mb-2">Add a Note</h4>
+            <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2">Add Note</h4>
             <textarea
                 value={note}
                 onChange={e => setNote(e.target.value)}
-                placeholder="Add a note about this contact..."
-                className="w-full bg-base-300 border border-gray-600 rounded-md p-2 text-white focus:ring-2 focus:ring-brand-primary resize-y"
-                rows={3}
+                placeholder="Type details here..."
+                className="w-full bg-base-300/50 border border-gray-600 rounded-lg p-3 text-white text-sm focus:ring-1 focus:ring-brand-primary focus:border-brand-primary resize-y transition-all"
+                rows={2}
             />
-            <button type="submit" className="mt-2 bg-brand-primary hover:bg-brand-secondary text-white font-bold py-2 px-4 rounded-md transition-colors disabled:bg-gray-500" disabled={!note.trim()}>
-                Add Note
-            </button>
+            <div className="flex justify-end mt-2">
+                <button type="submit" className="bg-brand-surface border border-gray-600 hover:bg-brand-primary hover:border-brand-primary text-white text-xs font-bold py-1.5 px-3 rounded transition-all disabled:opacity-50" disabled={!note.trim()}>
+                    Save Note
+                </button>
+            </div>
         </form>
     );
 };
@@ -117,7 +119,7 @@ export const CrmListItem: React.FC<CrmListItemProps> = ({ contact, onComposeEmai
             address: contact.address || ''
         });
         setIsEditing(true);
-        setIsExpanded(true); // Ensure expanded to see form
+        setIsExpanded(true);
     };
 
     const handleCancelEdit = (e: React.MouseEvent) => {
@@ -135,143 +137,144 @@ export const CrmListItem: React.FC<CrmListItemProps> = ({ contact, onComposeEmai
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
-    // Helper to ensure URL has protocol
     const getExternalUrl = (url: string) => {
         if (!url) return '';
         return url.startsWith('http') ? url : `https://${url}`;
     };
 
     return (
-        <li className="bg-base-200 rounded-lg shadow-md transition-all duration-300">
-            <div className="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0 sm:gap-4 cursor-pointer" onClick={() => !isEditing && setIsExpanded(!isExpanded)}>
+        <li className={`glass-panel border border-white/5 rounded-xl shadow-lg transition-all duration-300 overflow-hidden ${isExpanded ? 'ring-1 ring-brand-primary/30' : 'hover:border-brand-primary/30'}`}>
+            <div className="p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0 sm:gap-4 cursor-pointer group" onClick={() => !isEditing && setIsExpanded(!isExpanded)}>
                 <div className="flex-grow w-full">
-                    <div className="flex items-center flex-wrap">
+                    <div className="flex items-center flex-wrap gap-2">
                         {isEditing ? (
                             <input 
                                 type="text" 
                                 value={formData.name} 
                                 onChange={e => handleInputChange('name', e.target.value)}
-                                className="text-xl font-bold text-white bg-base-300 border border-gray-600 rounded px-2 py-1 mr-2 w-full sm:w-auto"
+                                className="text-lg font-bold text-white bg-base-300 border border-gray-500 rounded px-2 py-1 w-full sm:w-auto"
                                 onClick={e => e.stopPropagation()}
                             />
                         ) : (
-                            <h3 className="text-xl font-bold text-white mr-2">{contact.name}</h3>
+                            <h3 className="text-lg font-bold text-white group-hover:text-brand-light transition-colors">{contact.name}</h3>
                         )}
                         {!isEditing && <LeadStatusBadge status={contact.status} />}
                     </div>
-                     <div className="flex items-center text-sm text-gray-400 mt-1">
-                        <UserIcon className="h-4 w-4 mr-1" />
-                        <span>{assignedUser ? `Assigned to ${assignedUser.username}` : 'Unassigned'}</span>
+                     <div className="flex items-center text-xs text-gray-400 mt-1.5">
+                        <UserIcon className="h-3 w-3 mr-1.5" />
+                        <span className="font-medium">{assignedUser ? `Owner: ${assignedUser.username}` : 'Unassigned'}</span>
                     </div>
                 </div>
-                 <div className="flex items-center text-gray-400">
-                    <span>{isExpanded ? 'Less' : 'Details'}</span>
+                 <div className="flex items-center text-gray-400 bg-base-300/30 px-3 py-1.5 rounded-lg border border-white/5 group-hover:bg-base-300/60 transition-colors">
+                    <span className="text-xs font-semibold mr-2">{isExpanded ? 'Hide' : 'View'}</span>
                     {isExpanded ? <ChevronUpIcon /> : <ChevronDownIcon />}
                 </div>
             </div>
 
             {isExpanded && (
-                 <div className="p-4 border-t border-gray-700">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <div className="flex justify-between items-center mb-2">
-                                <h4 className="text-lg font-semibold text-white">Contact Actions</h4>
+                 <div className="p-5 border-t border-white/5 bg-base-300/10 backdrop-blur-sm">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div className="space-y-6">
+                            {/* Action Buttons Area */}
+                             <div className="flex justify-between items-center border-b border-white/5 pb-2 mb-4">
+                                <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider">Actions</h4>
                                 {!isEditing && (
-                                    <button onClick={handleEditClick} className="text-xs flex items-center text-brand-light hover:text-white bg-base-300 px-2 py-1 rounded">
-                                        <EditIcon className="h-4 w-4 mr-1"/> Edit Info
+                                    <button onClick={handleEditClick} className="text-xs flex items-center text-brand-light hover:text-white bg-base-300/50 px-2 py-1 rounded border border-white/5 transition-all">
+                                        <EditIcon className="h-3 w-3 mr-1"/> Edit
                                     </button>
                                 )}
                             </div>
-                            
+
                             {isEditing ? (
-                                <div className="flex flex-col gap-4 mt-4">
-                                     <button onClick={handleSaveEdit} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-md transition-colors flex items-center justify-center">
-                                        <CheckIcon /> <span className="ml-2">Save Changes</span>
+                                <div className="flex gap-3">
+                                     <button onClick={handleSaveEdit} className="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm font-bold py-2 px-3 rounded-lg shadow-lg transition-colors flex items-center justify-center">
+                                        <CheckIcon /> <span className="ml-2">Save</span>
                                      </button>
-                                     <button onClick={handleCancelEdit} className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-3 rounded-md transition-colors flex items-center justify-center">
+                                     <button onClick={handleCancelEdit} className="flex-1 bg-base-300 hover:bg-base-200 border border-gray-600 text-white text-sm font-bold py-2 px-3 rounded-lg transition-colors flex items-center justify-center">
                                         <CancelIcon /> <span className="ml-2">Cancel</span>
                                      </button>
                                 </div>
                             ) : (
-                                <div className="flex flex-wrap gap-2">
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                     {contact.phone && (
-                                        <a href={`https://wa.me/${sanitizedPhone}`} target="_blank" rel="noopener noreferrer" className="flex-1 sm:flex-grow-0 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-md transition-colors flex items-center justify-center text-sm" aria-label={`Message on WhatsApp`}>
-                                            <WhatsAppIcon/> <span className="ml-2 hidden sm:inline">WhatsApp</span>
+                                        <a href={`https://wa.me/${sanitizedPhone}`} target="_blank" rel="noopener noreferrer" className="bg-green-600/90 hover:bg-green-600 text-white font-semibold py-2 px-2 rounded-lg transition-all flex items-center justify-center text-xs shadow-md border border-white/5">
+                                            <WhatsAppIcon/> <span className="ml-1.5 hidden sm:inline">WhatsApp</span>
                                         </a>
                                     )}
                                     {contact.phone && (
-                                        <a href={`tel:${sanitizedPhone}`} className="flex-1 sm:flex-grow-0 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-md transition-colors flex items-center justify-center text-sm" aria-label={`Call`}>
-                                            <PhoneIcon/> <span className="ml-2 hidden sm:inline">Call</span>
+                                        <a href={`tel:${sanitizedPhone}`} className="bg-blue-600/90 hover:bg-blue-600 text-white font-semibold py-2 px-2 rounded-lg transition-all flex items-center justify-center text-xs shadow-md border border-white/5">
+                                            <PhoneIcon/> <span className="ml-1.5 hidden sm:inline">Call</span>
                                         </a>
                                     )}
-                                    <button onClick={() => onComposeEmail(contact)} disabled={!contact.email || hasBeenEmailed} className="flex-1 sm:flex-grow-0 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-3 rounded-md transition-colors flex items-center justify-center text-sm disabled:bg-gray-500">
-                                        <EmailIcon className="h-4 w-4" /> <span className="ml-2 hidden sm:inline">{hasBeenEmailed ? 'Emailed' : 'Email'}</span>
+                                    <button onClick={() => onComposeEmail(contact)} disabled={!contact.email || hasBeenEmailed} className="bg-brand-primary/90 hover:bg-brand-primary text-white font-semibold py-2 px-2 rounded-lg transition-all flex items-center justify-center text-xs shadow-md border border-white/5 disabled:opacity-50 disabled:cursor-not-allowed">
+                                        <EmailIcon className="h-4 w-4" /> <span className="ml-1.5 hidden sm:inline">{hasBeenEmailed ? 'Sent' : 'Email'}</span>
                                     </button>
-                                    <button onClick={() => onRemoveFromCrm(contact.id)} className="flex-1 sm:flex-grow-0 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-md transition-colors flex items-center justify-center text-sm" aria-label={`Remove from CRM`}>
-                                        <TrashIcon /> <span className="ml-2 hidden sm:inline">Remove</span>
+                                    <button onClick={() => onRemoveFromCrm(contact.id)} className="bg-red-600/80 hover:bg-red-600 text-white font-semibold py-2 px-2 rounded-lg transition-all flex items-center justify-center text-xs shadow-md border border-white/5">
+                                        <TrashIcon /> <span className="ml-1.5 hidden sm:inline">Delete</span>
                                     </button>
                                 </div>
                             )}
                             
                             {!isEditing && (
-                            <>
-                             <div className="mt-4">
-                                <label htmlFor={`status-${contact.id}`} className="block text-sm font-medium text-base-content mb-1">Lead Status</label>
-                                <select
-                                    id={`status-${contact.id}`}
-                                    value={contact.status}
-                                    onChange={(e) => onUpdateStatus(contact.id, e.target.value as LeadStatus)}
-                                    className="w-full bg-base-300 border border-gray-600 rounded-md px-3 py-2 text-white focus:ring-2 focus:ring-brand-primary"
-                                    onClick={e => e.stopPropagation()}
-                                >
-                                    {leadStatuses.map(s => <option key={s} value={s}>{s}</option>)}
-                                </select>
-                            </div>
-                            {currentUser?.role === 'admin' && (
-                                <div className="mt-4">
-                                <label htmlFor={`assign-${contact.id}`} className="block text-sm font-medium text-base-content mb-1">Assign To</label>
-                                <select
-                                    id={`assign-${contact.id}`}
-                                    value={contact.assignedTo || 'unassigned'}
-                                    onChange={(e) => onAssignContact(contact.id, e.target.value)}
-                                    className="w-full bg-base-300 border border-gray-600 rounded-md px-3 py-2 text-white focus:ring-2 focus:ring-brand-primary"
-                                    onClick={e => e.stopPropagation()}
-                                >
-                                    <option value="unassigned">-- Unassigned --</option>
-                                    {users.map(u => <option key={u.id} value={u.id}>{u.username}</option>)}
-                                </select>
+                            <div className="bg-base-300/30 p-4 rounded-lg border border-white/5 space-y-4">
+                                 <div>
+                                    <label htmlFor={`status-${contact.id}`} className="block text-xs font-semibold text-gray-400 mb-1.5">Current Status</label>
+                                    <select
+                                        id={`status-${contact.id}`}
+                                        value={contact.status}
+                                        onChange={(e) => onUpdateStatus(contact.id, e.target.value as LeadStatus)}
+                                        className="w-full bg-base-100 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:ring-1 focus:ring-brand-primary cursor-pointer"
+                                        onClick={e => e.stopPropagation()}
+                                    >
+                                        {leadStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
                                 </div>
-                            )}
-                            </>
+                                {currentUser?.role === 'admin' && (
+                                    <div>
+                                    <label htmlFor={`assign-${contact.id}`} className="block text-xs font-semibold text-gray-400 mb-1.5">Assign To User</label>
+                                    <select
+                                        id={`assign-${contact.id}`}
+                                        value={contact.assignedTo || 'unassigned'}
+                                        onChange={(e) => onAssignContact(contact.id, e.target.value)}
+                                        className="w-full bg-base-100 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:ring-1 focus:ring-brand-primary cursor-pointer"
+                                        onClick={e => e.stopPropagation()}
+                                    >
+                                        <option value="unassigned">-- Unassigned --</option>
+                                        {users.map(u => <option key={u.id} value={u.id}>{u.username}</option>)}
+                                    </select>
+                                    </div>
+                                )}
+                            </div>
                             )}
                         </div>
-                        <div>
-                           <h4 className="text-lg font-semibold text-white mb-2">Contact Info</h4>
+
+                        <div className="flex flex-col h-full">
+                           <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3 border-b border-white/5 pb-2">Details</h4>
                            {isEditing ? (
-                               <div className="space-y-3 bg-base-300 p-3 rounded-md">
+                               <div className="space-y-3 bg-base-300/50 p-4 rounded-lg border border-white/5">
                                     <div>
-                                        <label className="text-xs text-gray-400 block">Phone</label>
-                                        <input type="text" value={formData.phone} onChange={e => handleInputChange('phone', e.target.value)} className="w-full bg-base-200 border border-gray-600 rounded px-2 py-1 text-white"/>
+                                        <label className="text-xs text-gray-400 font-semibold block mb-1">Phone</label>
+                                        <input type="text" value={formData.phone} onChange={e => handleInputChange('phone', e.target.value)} className="w-full bg-base-100 border border-gray-600 rounded px-3 py-1.5 text-white text-sm focus:ring-1 focus:ring-brand-primary"/>
                                     </div>
                                     <div>
-                                        <label className="text-xs text-gray-400 block">Email</label>
-                                        <input type="text" value={formData.email} onChange={e => handleInputChange('email', e.target.value)} className="w-full bg-base-200 border border-gray-600 rounded px-2 py-1 text-white"/>
+                                        <label className="text-xs text-gray-400 font-semibold block mb-1">Email</label>
+                                        <input type="text" value={formData.email} onChange={e => handleInputChange('email', e.target.value)} className="w-full bg-base-100 border border-gray-600 rounded px-3 py-1.5 text-white text-sm focus:ring-1 focus:ring-brand-primary"/>
                                     </div>
                                     <div>
-                                        <label className="text-xs text-gray-400 block">Website</label>
-                                        <input type="text" value={formData.website} onChange={e => handleInputChange('website', e.target.value)} className="w-full bg-base-200 border border-gray-600 rounded px-2 py-1 text-white"/>
+                                        <label className="text-xs text-gray-400 font-semibold block mb-1">Website</label>
+                                        <input type="text" value={formData.website} onChange={e => handleInputChange('website', e.target.value)} className="w-full bg-base-100 border border-gray-600 rounded px-3 py-1.5 text-white text-sm focus:ring-1 focus:ring-brand-primary"/>
                                     </div>
                                     <div>
-                                        <label className="text-xs text-gray-400 block">Address</label>
-                                        <input type="text" value={formData.address} onChange={e => handleInputChange('address', e.target.value)} className="w-full bg-base-200 border border-gray-600 rounded px-2 py-1 text-white"/>
+                                        <label className="text-xs text-gray-400 font-semibold block mb-1">Address</label>
+                                        <input type="text" value={formData.address} onChange={e => handleInputChange('address', e.target.value)} className="w-full bg-base-100 border border-gray-600 rounded px-3 py-1.5 text-white text-sm focus:ring-1 focus:ring-brand-primary"/>
                                     </div>
                                </div>
                            ) : (
-                               <div className="space-y-2 mb-4">
-                                   {contact.phone && <p className="text-gray-300 flex items-center"><PhoneIcon className="h-4 w-4 mr-2"/> {contact.phone}</p>}
-                                   {contact.email && <p className="text-gray-300 flex items-center"><EmailIcon className="h-4 w-4 mr-2"/> {contact.email}</p>}
-                                   {contact.website && <a href={getExternalUrl(contact.website)} target="_blank" rel="noopener noreferrer" className="text-brand-light hover:text-white hover:underline flex items-center"><WebsiteIcon className="h-4 w-4 mr-2"/> Visit Website</a>}
-                                   {contact.address && <p className="text-gray-300 flex items-start"><LocationIcon className="h-4 w-4 mr-2 mt-1"/> <span>{contact.address}</span></p>}
+                               <div className="space-y-3 mb-6 bg-base-300/20 p-4 rounded-lg border border-white/5">
+                                   {contact.phone ? <p className="text-gray-300 flex items-center text-sm"><PhoneIcon className="h-4 w-4 mr-3 text-gray-500"/> {contact.phone}</p> : <p className="text-gray-600 italic text-sm ml-7">No phone</p>}
+                                   {contact.email ? <p className="text-gray-300 flex items-center text-sm"><EmailIcon className="h-4 w-4 mr-3 text-gray-500"/> {contact.email}</p> : <p className="text-gray-600 italic text-sm ml-7">No email</p>}
+                                   {contact.website ? <a href={getExternalUrl(contact.website)} target="_blank" rel="noopener noreferrer" className="text-brand-light hover:text-white hover:underline flex items-center text-sm"><WebsiteIcon className="h-4 w-4 mr-3 text-gray-500"/> {contact.website}</a> : <p className="text-gray-600 italic text-sm ml-7">No website</p>}
+                                   {contact.address ? <p className="text-gray-300 flex items-start text-sm"><LocationIcon className="h-4 w-4 mr-3 text-gray-500 mt-0.5"/> <span>{contact.address}</span></p> : <p className="text-gray-600 italic text-sm ml-7">No address</p>}
                                </div>
                            )}
 
