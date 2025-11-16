@@ -20,26 +20,26 @@ export const SettingsIcon = () => (
     </svg>
 );
 
-export const EmailIcon = ({className = "h-5 w-5"}) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+export const EmailIcon = ({className = "h-5 w-5", ...props}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
     </svg>
 );
 
-export const PhoneIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+export const PhoneIcon = ({className = "h-5 w-5", ...props}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
     </svg>
 );
 
-export const WebsiteIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+export const WebsiteIcon = ({className = "h-5 w-5", ...props}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
     </svg>
 );
 
-export const LocationIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+export const LocationIcon = ({className = "h-5 w-5", ...props}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
     </svg>
@@ -60,8 +60,8 @@ export const AddToCrmIcon = () => (
     </svg>
 );
 
-export const TrashIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+export const TrashIcon = ({className = "h-5 w-5", ...props}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
         <polyline points="3 6 5 6 21 6" />
         <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
         <line x1="10" y1="11" x2="10" y2="17" />
@@ -81,70 +81,106 @@ export const ChevronUpIcon = () => (
     </svg>
 );
 
-export const NoteIcon = ({className = "h-5 w-5"}) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor">
+export const NoteIcon = ({className = "h-5 w-5", ...props}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor" {...props}>
       <path d="M2 3a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1-1H3a1 1 0 01-1-1V3zm2 2v10h12V5H4z" />
       <path d="M6 7h8v1H6V7zm0 2h8v1H6V9zm0 2h5v1H6v-1z" />
     </svg>
 );
 
-export const StatusChangeIcon = ({className = "h-5 w-5"}) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor">
+export const StatusChangeIcon = ({className = "h-5 w-5", ...props}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor" {...props}>
       <path fillRule="evenodd" d="M15.312 11.227a4.5 4.5 0 00-8.536-2.454l-2.122 2.122a.75.75 0 001.06 1.061l2.073-2.073a3 3 0 115.265 1.413l-1.88 1.88a.75.75 0 101.06 1.06l1.88-1.88a4.5 4.5 0 00-1.72-2.129z" clipRule="evenodd" />
       <path fillRule="evenodd" d="M4.688 8.773a4.5 4.5 0 008.536 2.454l2.122-2.122a.75.75 0 00-1.06-1.061l-2.073 2.073a3 3 0 11-5.265-1.413l1.88-1.88a.75.75 0 10-1.06-1.06l-1.88 1.88a4.5 4.5 0 001.72 2.129z" clipRule="evenodd" />
     </svg>
 );
 
-export const CreatedIcon = ({className = "h-5 w-5"}) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor">
+export const CreatedIcon = ({className = "h-5 w-5", ...props}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor" {...props}>
       <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
     </svg>
 );
 
-export const UserIcon = ({className = "h-5 w-5"}) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor">
+export const UserIcon = ({className = "h-5 w-5", ...props}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor" {...props}>
       <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
     </svg>
 );
 
-export const AssignUserIcon = ({className = "h-5 w-5"}) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+export const AssignUserIcon = ({className = "h-5 w-5", ...props}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
     </svg>
 );
 
-export const EditIcon = ({className = "h-5 w-5"}) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+export const EditIcon = ({className = "h-5 w-5", ...props}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z" />
     </svg>
 );
 
-export const FacebookIcon = ({className = "h-5 w-5"}) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="currentColor">
+export const FacebookIcon = ({className = "h-5 w-5", ...props}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="currentColor" {...props}>
         <path d="M22.675 0h-21.35c-.732 0-1.325.593-1.325 1.325v21.351c0 .731.593 1.324 1.325 1.324h11.494v-9.294h-3.128v-3.622h3.128v-2.671c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.795.143v3.24l-1.918.001c-1.504 0-1.795.715-1.795 1.763v2.313h3.587l-.467 3.622h-3.12v9.293h6.116c.73 0 1.323-.593 1.323-1.325v-21.35c0-.732-.593-1.325-1.325-1.325z"/>
     </svg>
 );
 
-export const LinkedInIcon = ({className = "h-5 w-5"}) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="currentColor">
+export const LinkedInIcon = ({className = "h-5 w-5", ...props}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="currentColor" {...props}>
         <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
     </svg>
 );
 
-export const DownloadIcon = ({className = "h-5 w-5"}) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+export const DownloadIcon = ({className = "h-5 w-5", ...props}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
     </svg>
 );
 
-export const CheckIcon = ({className = "h-5 w-5"}) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+export const CheckIcon = ({className = "h-5 w-5", ...props}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
     </svg>
 );
 
-export const CancelIcon = ({className = "h-5 w-5"}) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+export const CancelIcon = ({className = "h-5 w-5", ...props}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+    </svg>
+);
+
+export const ArrowLeftIcon = ({className = "h-5 w-5", ...props}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+    </svg>
+);
+
+export const PlusIcon = ({className = "h-5 w-5", ...props}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+    </svg>
+);
+
+export const CustomSourceIcon = ({className = "h-5 w-5", ...props}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor" {...props}>
+        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+    </svg>
+);
+
+export const ChevronLeftIcon = ({className = "h-5 w-5", ...props}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+    </svg>
+);
+
+export const ChevronRightIcon = ({className = "h-5 w-5", ...props}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+    </svg>
+);
+
+export const CalendarIcon = ({className = "h-5 w-5", ...props}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
     </svg>
 );

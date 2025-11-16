@@ -50,6 +50,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     const { error: insertError } = await supabase.from('app_users').insert(masterAdmin);
                     if (insertError) {
                         console.error('Error seeding master admin:', JSON.stringify(insertError, null, 2));
+                    } else {
+                        console.log('Master admin seeded successfully.');
                     }
                     
                     setUsers([masterAdmin]);
@@ -72,15 +74,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const login = async (username: string, password: string): Promise<void> => {
         // Verify against Supabase
+        // Used maybeSingle() instead of single() to avoid PGRST116 error when no rows match
         const { data, error } = await supabase
             .from('app_users')
             .select('*')
             .eq('username', username)
             .eq('password', password)
-            .single();
+            .maybeSingle();
 
-        if (error || !data) {
-            console.error("Login error details:", error ? JSON.stringify(error, null, 2) : "No data returned");
+        if (error) {
+            console.error("Login error details:", JSON.stringify(error, null, 2));
+            throw new Error('An unexpected error occurred during login.');
+        }
+
+        if (!data) {
             throw new Error('Invalid username or password');
         }
 

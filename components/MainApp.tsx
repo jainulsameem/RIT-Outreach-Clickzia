@@ -5,17 +5,25 @@ import { BusinessList } from './BusinessList';
 import { SettingsModal } from './SettingsModal';
 import { EmailComposerModal } from './EmailComposerModal';
 import { CrmList } from './CrmList';
+import { CrmDetailPage } from './CrmDetailPage'; // Imported the new page
 import { CrmFilterBar } from './CrmFilterBar';
 import { UserManagement } from './UserManagement';
 import { AddEditUserModal } from './AddEditUserModal';
-import { SettingsIcon, UserIcon, DownloadIcon } from './icons';
+import { AddContactModal } from './AddContactModal';
+import { SettingsIcon, UserIcon, DownloadIcon, PlusIcon } from './icons';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { useAuth } from '../context/AuthContext';
 import { findBusinesses, findBusinessesOnFacebook, findDecisionMakers } from '../services/geminiService';
 import { supabase } from '../services/supabaseClient';
 import type { Business, Settings, CrmContact, LeadStatus, User, CrmFilters, GroundingChunk, SearchParams } from '../types';
 
+// Define view states to act like pages
+type ViewState = 'search' | 'crm-list' | 'crm-detail' | 'users';
+
 export function MainApp() {
+  const [view, setView] = useState<ViewState>('search');
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
+
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [groundingChunks, setGroundingChunks] = useState<GroundingChunk[] | undefined>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -28,7 +36,6 @@ export function MainApp() {
     fromName: '', fromEmail: '', outreachTopic: '', emailSignature: '',
   });
 
-  const [activeTab, setActiveTab] = useState<'search' | 'crm' | 'users'>('search');
   const [emailedBusinessIds, setEmailedBusinessIds] = useState<string[]>([]);
 
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -37,6 +44,8 @@ export function MainApp() {
 
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+
+  const [isAddContactModalOpen, setIsAddContactModalOpen] = useState(false);
 
   const [filters, setFilters] = useState<CrmFilters>({
     status: 'All',
@@ -109,13 +118,32 @@ export function MainApp() {
       if (filters.date.type !== 'any') {
         filtered = filtered.filter(c => {
             const createdActivity = c.activities?.find(a => a.type === 'created');
-            if (!createdActivity) return false;
-            const addedDate = new Date(createdActivity.timestamp);
-            addedDate.setHours(0, 0, 0, 0);
-            if (filters.date.type === 'today') { const today = new Date(); today.setHours(0, 0, 0, 0); return addedDate.getTime() === today.getTime(); }
-            if (filters.date.type === 'week') { const oneWeekAgo = new Date(); oneWeekAgo.setDate(oneWeekAgo.getDate() - 7); oneWeekAgo.setHours(0, 0, 0, 0); return addedDate >= oneWeekAgo; }
-            if (filters.date.type === 'month') { const oneMonthAgo = new Date(); oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1); oneMonthAgo.setHours(0, 0, 0, 0); return addedDate >= oneMonthAgo; }
-            if (filters.date.type === 'custom' && filters.date.startDate && filters.date.endDate) { const startDate = new Date(filters.date.startDate); const endDate = new Date(filters.date.endDate); return addedDate >= startDate && addedDate <= endDate; }
+            const timestamp = createdActivity?.timestamp;
+            if (!timestamp) return false;
+            
+            const dateObj = new Date(timestamp);
+            // 'en-CA' locale format is YYYY-MM-DD, ensuring we compare local dates correctly
+            const localDateStr = dateObj.toLocaleDateString('en-CA');
+            
+            if (filters.date.type === 'today') {
+                const todayStr = new Date().toLocaleDateString('en-CA');
+                return localDateStr === todayStr;
+            }
+            if (filters.date.type === 'week') {
+                const weekAgo = new Date();
+                weekAgo.setDate(weekAgo.getDate() - 7);
+                // For week/month, full object comparison is safer for "last X days" logic
+                return dateObj >= weekAgo;
+            }
+            if (filters.date.type === 'month') {
+                const monthAgo = new Date();
+                monthAgo.setMonth(monthAgo.getMonth() - 1);
+                return dateObj >= monthAgo;
+            }
+            if (filters.date.type === 'custom' && filters.date.startDate && filters.date.endDate) {
+                // Compare date strings to be timezone-agnostic for user selected range
+                return localDateStr >= filters.date.startDate && localDateStr <= filters.date.endDate;
+            }
             return true;
         });
       }
@@ -129,12 +157,11 @@ export function MainApp() {
   }, [crmContacts, filters, currentUser]);
 
   const handleSearch = async (params: SearchParams) => {
-    setIsLoading(true); setError(null); setBusinesses([]); setActiveTab('search');
+    setIsLoading(true); setError(null); setBusinesses([]); setView('search');
     setGroundingChunks([]);
     setLastSearchParams(params);
     setCanLoadMore(false);
 
-    // PROGRESSIVE LOADING CALLBACK
     const onBatchLoaded = (newData: Business[], newChunks: GroundingChunk[]) => {
          setBusinesses(prev => [...prev, ...newData]);
          if (newChunks) setGroundingChunks(prev => [...(prev || []), ...newChunks]);
@@ -142,7 +169,6 @@ export function MainApp() {
 
     try {
       let results: Business[] = [];
-      
       if (params.source === 'facebook') {
         const response = await findBusinessesOnFacebook(params.industry, params.keywords, params.location, params.numberOfResults, [], onBatchLoaded);
         results = response.businesses;
@@ -153,10 +179,7 @@ export function MainApp() {
         const response = await findBusinesses(params.industry, params.keywords, params.location, geolocation.coords, params.profileStatus, params.numberOfResults, [], onBatchLoaded);
         results = response.businesses;
       }
-      
-      if (results.length >= params.numberOfResults) {
-        setCanLoadMore(true);
-      }
+      if (results.length >= params.numberOfResults) setCanLoadMore(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred during search.');
     } finally {
@@ -166,19 +189,14 @@ export function MainApp() {
 
   const handleLoadMore = async () => {
     if (!lastSearchParams || isLoadingMore) return;
-    
-    setIsLoadingMore(true);
-    setError(null);
+    setIsLoadingMore(true); setError(null);
     const existingBusinessNames = businesses.map(b => lastSearchParams.source === 'linkedin' ? `${b.contactName}-${b.name}` : b.name);
-
     const onBatchLoaded = (newData: Business[], newChunks: GroundingChunk[]) => {
          setBusinesses(prev => [...prev, ...newData]);
          if (newChunks) setGroundingChunks(prev => [...(prev || []), ...newChunks]);
     };
-
     try {
         let newResults: Business[] = [];
-        
         if (lastSearchParams.source === 'facebook') {
             const response = await findBusinessesOnFacebook(lastSearchParams.industry, lastSearchParams.keywords, lastSearchParams.location, lastSearchParams.numberOfResults, existingBusinessNames, onBatchLoaded);
             newResults = response.businesses;
@@ -189,12 +207,8 @@ export function MainApp() {
             const response = await findBusinesses(lastSearchParams.industry, lastSearchParams.keywords, lastSearchParams.location, geolocation.coords, lastSearchParams.profileStatus, lastSearchParams.numberOfResults, existingBusinessNames, onBatchLoaded);
             newResults = response.businesses;
         }
-        
-        if (newResults.length === 0) {
-            setCanLoadMore(false);
-        } else {
-            setCanLoadMore(true);
-        }
+        if (newResults.length === 0) setCanLoadMore(false);
+        else setCanLoadMore(true);
     } catch (err) {
         setError(err instanceof Error ? err.message : 'An unknown error occurred while loading more results.');
         setCanLoadMore(false);
@@ -242,8 +256,24 @@ export function MainApp() {
     setCrmContacts(prev => [...prev, newContact]);
     await upsertContactToDb(newContact);
   };
+  
+  const handleManualAddContact = async (business: Business) => {
+      const newContact: CrmContact = { 
+          ...business, 
+          status: 'New',
+          source: 'custom', // Explicitly marking as custom
+          activities: [{ id: Date.now().toString(), type: 'created', content: 'Manual lead created.', timestamp: new Date().toISOString() }] 
+      };
+      setCrmContacts(prev => [...prev, newContact]);
+      await upsertContactToDb(newContact);
+  };
 
   const handleRemoveFromCrm = async (businessId: string) => {
+      // If deleting the currently viewed contact, go back to list
+      if (selectedContactId === businessId) {
+          setView('crm-list');
+          setSelectedContactId(null);
+      }
       setCrmContacts(prev => prev.filter(c => c.id !== businessId));
       const { error } = await supabase.from('crm_contacts').delete().eq('id', businessId);
       if (error) console.error("Error removing contact:", JSON.stringify(error, null, 2));
@@ -329,7 +359,7 @@ export function MainApp() {
         if (field === null || field === undefined) return '';
         return `"${String(field).replace(/"/g, '""')}"`;
     };
-    const headers = ['ID', 'Name', 'Contact Name', 'Contact Role', 'Address', 'Phone', 'Website', 'Email', 'LinkedIn', 'Profile Status', 'Source'];
+    const headers = ['ID', 'Name', 'Contact Name', 'Contact Role', 'Address', 'Phone', 'Website', 'Email', 'LinkedIn', 'Profile Status', 'Source', 'Source Details'];
     const rows = businesses.map(b => [ 
         escapeCsvField(b.id), 
         escapeCsvField(b.name),
@@ -341,7 +371,8 @@ export function MainApp() {
         escapeCsvField(b.email), 
         escapeCsvField(b.linkedinUrl),
         escapeCsvField(b.profileStatus), 
-        escapeCsvField(b.source) 
+        escapeCsvField(b.source),
+        escapeCsvField(b.customSourceDetails)
     ].join(','));
     const csvContent = [headers.join(','), ...rows].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
@@ -355,7 +386,18 @@ export function MainApp() {
 
   const crmContactIds = React.useMemo(() => crmContacts.map(c => c.id), [crmContacts]);
 
-  // Helpers for conditional rendering to avoid JSX syntax errors in returns
+  // --- Navigation Logic ---
+  const handleViewDetails = (contactId: string) => {
+      setSelectedContactId(contactId);
+      setView('crm-detail');
+      window.scrollTo(0, 0);
+  };
+
+  const handleBackToCrmList = () => {
+      setView('crm-list');
+      setSelectedContactId(null);
+  };
+
   const renderLoadingState = () => (
     <div className="text-center py-20 glass-panel rounded-xl mx-auto max-w-md">
         <svg className="animate-spin mx-auto h-12 w-12 text-brand-primary mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -404,22 +446,50 @@ export function MainApp() {
   return (
     <React.Fragment>
       <header className="sticky top-0 z-50 glass-header shadow-lg border-b border-white/5">
-        <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg shadow-brand-primary/20">
-               <span className="text-white font-bold text-lg">R</span>
-            </div>
-            <div>
-                <h1 className="text-xl font-bold text-white tracking-tight leading-tight">Rit Outreach</h1>
-                <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Click Zia</p>
-            </div>
+        <div className="container mx-auto px-4 py-3 flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
+             <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg shadow-brand-primary/20">
+                   <span className="text-white font-bold text-lg">R</span>
+                </div>
+                <div>
+                    <h1 className="text-xl font-bold text-white tracking-tight leading-tight">Rit Outreach</h1>
+                    <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Click Zia</p>
+                </div>
+             </div>
+             {/* Mobile Settings/Logout Toggle could go here */}
           </div>
+
+          {/* Main Navigation - Now in Header */}
+          <nav className="flex bg-base-300/50 p-1 rounded-lg border border-white/5 backdrop-blur-sm w-full md:w-auto">
+            <button 
+                onClick={() => setView('search')}
+                className={`flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-semibold transition-all ${view === 'search' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+            >
+                Search Results
+            </button>
+            <button 
+                onClick={() => setView(view === 'crm-detail' ? 'crm-detail' : 'crm-list')}
+                className={`flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-semibold transition-all relative ${view.startsWith('crm') ? 'bg-brand-primary text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+            >
+                My CRM
+                {crmContacts.length > 0 && <span className="absolute top-1.5 right-1.5 flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-accent opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-brand-accent"></span></span>}
+            </button>
+            {currentUser?.role === 'admin' && (
+                <button 
+                    onClick={() => setView('users')}
+                    className={`flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-semibold transition-all ${view === 'users' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                >
+                    Users
+                </button>
+            )}
+          </nav>
           
-          <div className="flex items-center gap-2 md:gap-4">
+          <div className="flex items-center gap-2 hidden md:flex">
             {currentUser && (
-              <div className="hidden md:flex items-center text-gray-300 bg-base-300/50 px-3 py-1.5 rounded-full border border-white/5">
+              <div className="flex items-center text-gray-300 text-sm mr-2">
                 <UserIcon className="h-4 w-4 mr-2 text-brand-secondary" />
-                <span className="text-sm font-medium">{currentUser.username}</span>
+                <span className="font-medium">{currentUser.username}</span>
               </div>
             )}
             <button onClick={() => setIsSettingsModalOpen(true)} className="text-gray-400 hover:text-white hover:bg-white/10 p-2 rounded-full transition-all" title="Settings">
@@ -433,44 +503,18 @@ export function MainApp() {
       </header>
       
       <div className="container mx-auto p-4 md:p-6 max-w-6xl">
-          <section className="mb-8">
-              <SearchForm onSearch={handleSearch} isLoading={isLoading || isLoadingMore} />
-              {geolocation.error && <p className="text-sm text-yellow-400 mt-2 bg-yellow-500/10 p-2 rounded-lg inline-block border border-yellow-500/20">⚠️ Could not get location: {geolocation.error.message}.</p>}
-          </section>
+          {error && <div className="bg-red-500/10 border border-red-500/30 text-red-200 px-4 py-4 rounded-xl mb-6 shadow-lg backdrop-blur-sm" role="alert">{error}</div>}
 
-          <div className="mb-8 sticky top-[70px] z-40 backdrop-blur-md py-2 -mx-4 px-4 md:mx-0 md:px-0 md:static md:backdrop-blur-none">
-            <div className="flex p-1 bg-base-300/80 backdrop-blur-sm rounded-xl border border-white/5 shadow-inner w-full md:w-fit">
-              <button 
-                onClick={() => setActiveTab('search')} 
-                className={`flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 ${activeTab === 'search' ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/25' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
-              >
-                Search Results
-              </button>
-              <button 
-                onClick={() => setActiveTab('crm')} 
-                className={`flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 relative ${activeTab === 'crm' ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/25' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
-              >
-                My CRM 
-                {crmContacts.length > 0 && <span className="absolute top-1.5 right-1.5 flex h-2.5 w-2.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-accent opacity-75"></span><span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-brand-accent"></span></span>}
-              </button>
-              {currentUser?.role === 'admin' && (
-                <button 
-                    onClick={() => setActiveTab('users')} 
-                    className={`flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 ${activeTab === 'users' ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/25' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
-                >
-                    Users
-                </button>
-              )}
-            </div>
-          </div>
+          <section className="min-h-[500px] animate-fadeIn">
+            
+            {/* --- SEARCH VIEW --- */}
+            {view === 'search' && (
+                  <>
+                    <div className="mb-8">
+                         <SearchForm onSearch={handleSearch} isLoading={isLoading || isLoadingMore} />
+                         {geolocation.error && <p className="text-sm text-yellow-400 mt-2 bg-yellow-500/10 p-2 rounded-lg inline-block border border-yellow-500/20">⚠️ Could not get location: {geolocation.error.message}.</p>}
+                    </div>
 
-          <section className="min-h-[500px]">
-            {error && <div className="bg-red-500/10 border border-red-500/30 text-red-200 px-4 py-4 rounded-xl mb-6 shadow-lg backdrop-blur-sm" role="alert">{error}</div>}
-            
-            {activeTab === 'crm' && <CrmList contacts={filteredAndSortedContacts} onComposeEmail={handleComposeEmail} emailedBusinessIds={emailedBusinessIds} onRemoveFromCrm={handleRemoveFromCrm} onUpdateStatus={handleUpdateStatus} onAddNote={handleAddNote} users={users} currentUser={currentUser} onAssignContact={handleAssignContact} onUpdateContactDetails={handleUpdateContactDetails} />}
-            
-            {activeTab === 'search' && (
-                  <div className="animate-fadeIn">
                     {isLoading && businesses.length === 0 ? renderLoadingState() : (
                       <React.Fragment>
                         {businesses.length > 0 && (
@@ -505,17 +549,63 @@ export function MainApp() {
                         )}
                       </React.Fragment>
                     )}
-                  </div>
-                )}
-                
-                {activeTab === 'users' && currentUser?.role === 'admin' && (
-                  <UserManagement crmContacts={crmContacts} onAddUser={() => { setEditingUser(null); setIsUserModalOpen(true); }} onEditUser={(user) => { setEditingUser(user); setIsUserModalOpen(true); }} onRemoveUser={handleRemoveUser} />
-                )}
+                  </>
+            )}
+            
+            {/* --- CRM LIST VIEW --- */}
+            {view === 'crm-list' && (
+                <>
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-3xl font-bold text-white">My Pipeline</h2>
+                         <button 
+                            onClick={() => setIsAddContactModalOpen(true)}
+                            className="bg-brand-primary hover:bg-brand-secondary text-white font-bold py-2 px-4 rounded-lg shadow-lg transition-all flex items-center"
+                        >
+                            <PlusIcon className="h-5 w-5 mr-2" /> Add Lead
+                        </button>
+                    </div>
+                    <CrmFilterBar filters={filters} onFiltersChange={setFilters} users={users} currentUser={currentUser} />
+                    <CrmList 
+                        contacts={filteredAndSortedContacts} 
+                        onViewDetails={handleViewDetails} 
+                        currentUser={currentUser}
+                        users={users}
+                    />
+                </>
+            )}
+
+            {/* --- CRM DETAIL VIEW --- */}
+            {view === 'crm-detail' && selectedContactId && (() => {
+                const contact = crmContacts.find(c => c.id === selectedContactId);
+                if (!contact) return <div className="text-white text-center">Contact not found. <button onClick={handleBackToCrmList} className="text-brand-primary underline">Go Back</button></div>;
+                return (
+                    <CrmDetailPage 
+                        contact={contact}
+                        onBack={handleBackToCrmList}
+                        onComposeEmail={handleComposeEmail}
+                        hasBeenEmailed={emailedBusinessIds.includes(contact.id)}
+                        onRemoveFromCrm={handleRemoveFromCrm}
+                        onUpdateStatus={handleUpdateStatus}
+                        onAddNote={handleAddNote}
+                        users={users}
+                        currentUser={currentUser}
+                        onAssignContact={handleAssignContact}
+                        onUpdateContactDetails={handleUpdateContactDetails}
+                    />
+                );
+            })()}
+            
+            {/* --- USER MANAGEMENT VIEW --- */}
+            {view === 'users' && currentUser?.role === 'admin' && (
+               <UserManagement crmContacts={crmContacts} onAddUser={() => { setEditingUser(null); setIsUserModalOpen(true); }} onEditUser={(user) => { setEditingUser(user); setIsUserModalOpen(true); }} onRemoveUser={handleRemoveUser} />
+            )}
+
           </section>
       </div>
 
       <SettingsModal isOpen={isSettingsModalOpen} onClose={() => setIsSettingsModalOpen(false)} settings={settings} onSave={saveSettings} />
       <EmailComposerModal isOpen={isEmailComposerOpen} onClose={() => setIsEmailComposerOpen(false)} business={selectedBusiness} settings={settings} onEmailSent={handleEmailSent} />
+      <AddContactModal isOpen={isAddContactModalOpen} onClose={() => setIsAddContactModalOpen(false)} onSave={handleManualAddContact} />
       {isUserModalOpen && <AddEditUserModal isOpen={isUserModalOpen} onClose={() => setIsUserModalOpen(false)} onSave={handleSaveUser} userToEdit={editingUser} />}
     </React.Fragment>
   );

@@ -17,6 +17,8 @@ export interface Settings {
   emailSignature: string;
 }
 
+export type SearchSource = 'google' | 'facebook' | 'linkedin' | 'custom';
+
 export interface Business {
   id: string;
   name: string;
@@ -25,7 +27,8 @@ export interface Business {
   website?: string;
   email?: string;
   profileStatus?: 'claimed' | 'unclaimed' | 'unknown';
-  source?: 'google' | 'facebook' | 'linkedin';
+  source?: SearchSource;
+  customSourceDetails?: string; // For manual leads (e.g., "Referral", "Networking Event")
   contactName?: string;
   contactRole?: string;
   linkedinUrl?: string;
@@ -90,7 +93,6 @@ export interface CrmFilters {
   sortOrder: 'newest' | 'oldest';
 }
 
-export type SearchSource = 'google' | 'facebook' | 'linkedin';
 export type ProfileStatus = 'all' | 'claimed' | 'unclaimed';
 
 // New: Shared SearchParams type
