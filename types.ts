@@ -112,6 +112,8 @@ export interface Project {
   id: string;
   name: string;
   color: string;
+  scope: 'global' | 'personal';
+  createdBy: string;
 }
 
 export interface TimeEntry {
