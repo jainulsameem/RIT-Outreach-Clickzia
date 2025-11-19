@@ -45,7 +45,14 @@ const getMonday = (d: Date) => {
     return monday;
 };
 
-const formatDateISO = (date: Date) => date.toISOString().split('T')[0];
+// Use local date string to avoid timezone shifts when working with YYYY-MM-DD inputs
+const toLocalISOString = (date: Date) => {
+    const offset = date.getTimezoneOffset() * 60000;
+    const localISOTime = (new Date(date.getTime() - offset)).toISOString().slice(0, -1);
+    return localISOTime.split('T')[0];
+};
+
+const formatDateISO = (date: Date) => toLocalISOString(date);
 
 const getTimeString = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -90,6 +97,11 @@ export const TimeTrackingPage: React.FC = () => {
     // Admin Timesheet Management State
     const [adminSelectedUserId, setAdminSelectedUserId] = useState<string>('');
     const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
+    
+    // Manual Entry State
+    const [isManualProjectInput, setIsManualProjectInput] = useState(false);
+    const [manualProjectName, setManualProjectName] = useState('');
+    const [manualProjectColor, setManualProjectColor] = useState('#6366f1');
     const [manualEntryForm, setManualEntryForm] = useState({
         id: '',
         date: '',
@@ -298,6 +310,10 @@ export const TimeTrackingPage: React.FC = () => {
     // --- Logic: Manual Entry (Admin) ---
 
     const openEntryModal = (entry?: TimeEntry, userId?: string) => {
+        setIsManualProjectInput(false);
+        setManualProjectName('');
+        setManualProjectColor('#6366f1');
+        
         if (entry) {
             setManualEntryForm({
                 id: entry.id,
@@ -324,11 +340,40 @@ export const TimeTrackingPage: React.FC = () => {
     };
 
     const handleSaveManualEntry = async () => {
+        if (!currentUser) return;
+
         const { id, userId, date, startTime, endTime, projectId, taskName } = manualEntryForm;
         
-        if (!date || !startTime || !projectId || !userId) {
+        if (!date || !startTime || !userId) {
             alert("Please fill in all required fields.");
             return;
+        }
+
+        // Handle dynamic project creation
+        let finalProjectId = projectId;
+        if (isManualProjectInput && projectId !== 'break') {
+            if (!manualProjectName.trim()) {
+                alert("Please enter a name for the new project.");
+                return;
+            }
+            
+            const newProjId = `proj-${Date.now()}`;
+            const newProj: Project = {
+                id: newProjId,
+                name: manualProjectName.trim(),
+                color: manualProjectColor, // Use selected color
+                scope: currentUser.role === 'admin' ? 'global' : 'personal',
+                createdBy: currentUser.id
+            };
+
+            // Save the new project first
+            setProjects(prev => [...prev, newProj]);
+            await supabase.from('projects').upsert({ id: newProj.id, user_id: currentUser.id, data: newProj });
+            
+            finalProjectId = newProjId;
+        } else if (!projectId && !isManualProjectInput) {
+             alert("Please select a project.");
+             return;
         }
 
         const startIso = combineDateAndTime(date, startTime);
@@ -342,11 +387,11 @@ export const TimeTrackingPage: React.FC = () => {
             }
         }
 
-        const isBreak = projectId === 'break';
+        const isBreak = finalProjectId === 'break';
         const entry: TimeEntry = {
             id: id || `manual-${Date.now()}`,
             userId,
-            projectId,
+            projectId: finalProjectId,
             taskName: isBreak ? 'Break' : (taskName || 'Manual Entry'),
             startTime: startIso,
             endTime: endIso,
@@ -500,40 +545,82 @@ export const TimeTrackingPage: React.FC = () => {
 
 
     // --- Logic: Payroll ---
-    const [salaryMonth, setSalaryMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
-
-    const getDaysInMonth = (year: number, month: number) => new Date(year, month, 0).getDate();
+    const [payrollStart, setPayrollStart] = useState<string>(() => {
+        const now = new Date();
+        return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    });
+    const [payrollEnd, setPayrollEnd] = useState<string>(() => {
+        const now = new Date();
+        return new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+    });
 
     const calculatePayroll = (userId: string) => {
         const userConfig = userSalaries.find(s => s.userId === userId);
         if (!userConfig) return null;
 
-        const [year, month] = salaryMonth.split('-').map(Number);
-        const totalDays = getDaysInMonth(year, month);
+        const start = new Date(payrollStart);
+        const end = new Date(payrollEnd);
         
-        // Calculate LOP days: Approved 'Unpaid' leaves in this month
-        const lopDays = leaveRequests
-            .filter(r => {
-                const d = new Date(r.startDate);
-                return r.userId === userId && r.status === 'approved' && r.type === 'Unpaid' && 
-                       d.getMonth() + 1 === month && d.getFullYear() === year;
-            })
-            .reduce((acc, req) => {
-                 const start = new Date(req.startDate);
-                 const end = new Date(req.endDate);
-                 return acc + ((end.getTime() - start.getTime()) / (1000 * 3600 * 24) + 1);
-            }, 0);
+        // Basic validation
+        if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) return null;
 
+        // +1 to include the end date
+        const totalDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
+        
+        // Daily rate based on the exact number of days in the selected period
         const dailyRate = userConfig.baseSalary / totalDays;
-        const deduction = dailyRate * lopDays;
+
+        let lopDays = 0;
+        let missedDays = 0;
+
+        // Iterate through every day in the range
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            const dateStr = toLocalISOString(d);
+            const dayOfWeek = d.getDay();
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sun=0, Sat=6
+
+            // 1. Check for Approved Leave
+            const approvedLeave = leaveRequests.find(r => 
+                r.userId === userId && 
+                r.status === 'approved' && 
+                r.startDate <= dateStr && 
+                r.endDate >= dateStr
+            );
+
+            if (approvedLeave) {
+                if (approvedLeave.type === 'Unpaid') {
+                    lopDays++;
+                }
+                // If paid leave (Casual, Sick, etc.), day is accounted for.
+                continue;
+            }
+
+            // 2. Check for Time Entries if not on leave and not weekend
+            if (!isWeekend) {
+                const hasWork = entries.some(e => 
+                    e.userId === userId && 
+                    e.type === 'work' && 
+                    e.startTime.startsWith(dateStr)
+                );
+                
+                if (!hasWork) {
+                    missedDays++;
+                }
+            }
+        }
+
+        const totalDeductionDays = lopDays + missedDays;
+        const deduction = dailyRate * totalDeductionDays;
         const netSalary = userConfig.baseSalary - deduction;
 
         return {
             base: userConfig.baseSalary,
             currency: userConfig.currency,
             lopDays,
+            missedDays,
             deduction,
-            netSalary
+            netSalary,
+            totalDays
         };
     };
 
@@ -638,18 +725,50 @@ export const TimeTrackingPage: React.FC = () => {
                         <h3 className="text-lg font-bold text-white mb-4">{manualEntryForm.id ? 'Edit Entry' : 'Add Manual Entry'}</h3>
                         <div className="space-y-4">
                              <div>
-                                <label className="text-xs font-bold text-gray-400 uppercase block mb-1">Project</label>
-                                <select 
-                                    value={manualEntryForm.projectId}
-                                    onChange={e => setManualEntryForm({...manualEntryForm, projectId: e.target.value})}
-                                    className="w-full bg-base-300 border border-gray-600 rounded-lg px-3 py-2 text-white"
-                                >
-                                    <option value="" disabled>Select Project</option>
-                                    <option value="break">-- BREAK --</option>
-                                    {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                                </select>
+                                <div className="flex justify-between items-center mb-1">
+                                    <label className="text-xs font-bold text-gray-400 uppercase">Project</label>
+                                    <button 
+                                        onClick={() => setIsManualProjectInput(!isManualProjectInput)}
+                                        className="text-[10px] text-brand-primary hover:underline font-bold"
+                                    >
+                                        {isManualProjectInput ? 'Select Existing' : '+ New Project'}
+                                    </button>
+                                </div>
+                                
+                                {isManualProjectInput ? (
+                                    <div className="space-y-2">
+                                        <input 
+                                            type="text"
+                                            value={manualProjectName}
+                                            onChange={e => setManualProjectName(e.target.value)}
+                                            placeholder="Enter new project name..."
+                                            className="w-full bg-base-300 border border-brand-primary/50 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-brand-primary"
+                                        />
+                                        {/* Project Color Picker for Manual Entry */}
+                                        <div className="flex gap-2 flex-wrap pt-1">
+                                            {['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#f43f5e'].map(color => (
+                                                <button
+                                                    key={color}
+                                                    onClick={() => setManualProjectColor(color)}
+                                                    className={`w-5 h-5 rounded-full border-2 transition-transform hover:scale-110 ${manualProjectColor === color ? 'border-white scale-110' : 'border-transparent'}`}
+                                                    style={{ backgroundColor: color }}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <select 
+                                        value={manualEntryForm.projectId}
+                                        onChange={e => setManualEntryForm({...manualEntryForm, projectId: e.target.value})}
+                                        className="w-full bg-base-300 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                    >
+                                        <option value="" disabled>Select Project</option>
+                                        <option value="break">-- BREAK --</option>
+                                        {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                    </select>
+                                )}
                             </div>
-                            {manualEntryForm.projectId !== 'break' && (
+                            {(manualEntryForm.projectId !== 'break' && !isManualProjectInput || isManualProjectInput) && (
                                 <div>
                                     <label className="text-xs font-bold text-gray-400 uppercase block mb-1">Task</label>
                                     <input 
@@ -657,6 +776,7 @@ export const TimeTrackingPage: React.FC = () => {
                                         value={manualEntryForm.taskName}
                                         onChange={e => setManualEntryForm({...manualEntryForm, taskName: e.target.value})}
                                         className="w-full bg-base-300 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                        placeholder="Task description"
                                     />
                                 </div>
                             )}
@@ -1139,13 +1259,28 @@ export const TimeTrackingPage: React.FC = () => {
                          {/* Payroll Report */}
                          <div className="lg:col-span-2 glass-panel p-6 rounded-xl border border-white/10">
                              <div className="flex justify-between items-center mb-6">
-                                 <h3 className="text-lg font-bold text-white">Monthly Payroll Report</h3>
-                                 <input 
-                                    type="month" 
-                                    value={salaryMonth}
-                                    onChange={e => setSalaryMonth(e.target.value)}
-                                    className="bg-base-300/50 border border-gray-600 rounded-lg px-3 py-1 text-white"
-                                 />
+                                 <h3 className="text-lg font-bold text-white">Payroll Report</h3>
+                                 <div className="flex items-center gap-2">
+                                    <div className="flex flex-col">
+                                        <label className="text-[10px] text-gray-500 uppercase font-bold">Start</label>
+                                        <input 
+                                            type="date" 
+                                            value={payrollStart}
+                                            onChange={e => setPayrollStart(e.target.value)}
+                                            className="bg-base-300/50 border border-gray-600 rounded-lg px-3 py-1 text-white text-sm"
+                                        />
+                                    </div>
+                                    <span className="text-gray-400 mt-4">-</span>
+                                    <div className="flex flex-col">
+                                        <label className="text-[10px] text-gray-500 uppercase font-bold">End</label>
+                                        <input 
+                                            type="date" 
+                                            value={payrollEnd}
+                                            onChange={e => setPayrollEnd(e.target.value)}
+                                            className="bg-base-300/50 border border-gray-600 rounded-lg px-3 py-1 text-white text-sm"
+                                        />
+                                    </div>
+                                 </div>
                              </div>
                              
                              <div className="overflow-x-auto">
@@ -1154,7 +1289,8 @@ export const TimeTrackingPage: React.FC = () => {
                                          <tr className="text-gray-400 text-xs uppercase font-bold border-b border-gray-700">
                                              <th className="p-3">User</th>
                                              <th className="p-3">Base Salary</th>
-                                             <th className="p-3">LOP Days</th>
+                                             <th className="p-3 text-center">Missed Days</th>
+                                             <th className="p-3 text-center">LOP Days</th>
                                              <th className="p-3">Deduction</th>
                                              <th className="p-3 text-right">Net Salary</th>
                                          </tr>
@@ -1162,13 +1298,27 @@ export const TimeTrackingPage: React.FC = () => {
                                      <tbody className="text-sm">
                                          {users.filter(u => u.role !== 'admin').map(user => {
                                              const payroll = calculatePayroll(user.id);
-                                             if (!payroll) return null;
+                                             if (!payroll) return (
+                                                 <tr key={user.id}>
+                                                     <td colSpan={6} className="p-3 text-gray-500 text-center">Invalid date range or config missing</td>
+                                                 </tr>
+                                             );
                                              return (
                                                  <tr key={user.id} className="border-b border-white/5 hover:bg-white/5">
-                                                     <td className="p-3 text-white font-medium">{user.username}</td>
+                                                     <td className="p-3 text-white font-medium">
+                                                         {user.username}
+                                                         <span className="block text-[10px] text-gray-500 font-normal">Days: {payroll.totalDays}</span>
+                                                     </td>
                                                      <td className="p-3 text-gray-300">{payroll.currency}{payroll.base.toLocaleString()}</td>
-                                                     <td className="p-3 text-red-300">{payroll.lopDays} days</td>
-                                                     <td className="p-3 text-red-400">-{payroll.currency}{payroll.deduction.toFixed(2)}</td>
+                                                     <td className="p-3 text-center">
+                                                         {payroll.missedDays > 0 ? <span className="text-yellow-400 font-bold">{payroll.missedDays}</span> : <span className="text-gray-600">-</span>}
+                                                     </td>
+                                                     <td className="p-3 text-center">
+                                                         {payroll.lopDays > 0 ? <span className="text-red-400 font-bold">{payroll.lopDays}</span> : <span className="text-gray-600">-</span>}
+                                                     </td>
+                                                     <td className="p-3 text-red-400">
+                                                         {payroll.deduction > 0 ? `-${payroll.currency}${payroll.deduction.toFixed(2)}` : '-'}
+                                                     </td>
                                                      <td className="p-3 text-right font-bold text-green-400">{payroll.currency}{payroll.netSalary.toFixed(2)}</td>
                                                  </tr>
                                              );
@@ -1176,6 +1326,7 @@ export const TimeTrackingPage: React.FC = () => {
                                      </tbody>
                                  </table>
                              </div>
+                             <p className="text-xs text-gray-500 mt-4 italic">* Missed Days: Weekdays with no logged time and no approved leave. LOP: Approved 'Unpaid' leave.</p>
                          </div>
                     </div>
                 </div>
