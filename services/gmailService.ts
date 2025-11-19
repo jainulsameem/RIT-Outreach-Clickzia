@@ -1,5 +1,5 @@
 
-const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '946355631103-sro9uveki04kjjf1d6d11jrm7vij0bbh.apps.googleusercontent.com';
 const SCOPES = 'https://www.googleapis.com/auth/gmail.send';
 
 let tokenClient: any;
@@ -11,60 +11,84 @@ export const initGmailClient = async (): Promise<boolean> => {
         console.warn("Google Client ID not found. Gmail integration disabled.");
         return false;
     } else {
-        console.log("Initializing Gmail Client with ID ending in...", CLIENT_ID.slice(-10));
+        console.log("Initializing Gmail Client...");
+        console.log("⚠️ REQUIRED ORIGIN for Google Console:", window.location.origin);
     }
 
     return new Promise((resolve) => {
+        let attempts = 0;
         const checkScripts = setInterval(() => {
+            attempts++;
+            // Timeout after approx 5 seconds (50 * 100ms)
+            if (attempts > 50) {
+                clearInterval(checkScripts);
+                console.error("Google API scripts failed to load within timeout.");
+                resolve(false);
+                return;
+            }
+
             if (typeof gapi !== 'undefined' && typeof google !== 'undefined') {
                 clearInterval(checkScripts);
                 
+                const maybeResolve = () => {
+                    if (gapiInited && gisInited) {
+                        resolve(true);
+                    }
+                };
+
                 // Initialize GAPI
                 gapi.load('client', async () => {
-                    await gapi.client.init({
-                        // apiKey: API_KEY, // specific API key not strictly needed for OAuth calls if sending token, but helpful for discovery
-                        discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/gmail/v1/rest'],
-                    });
-                    gapiInited = true;
-                    maybeResolve();
+                    try {
+                        await gapi.client.init({
+                            // apiKey: API_KEY, // Optional for OAuth, handled by Token Client
+                            discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/gmail/v1/rest'],
+                        });
+                        gapiInited = true;
+                        maybeResolve();
+                    } catch (err) {
+                        console.error("Failed to initialize GAPI client", err);
+                        // Don't resolve false here immediately, let the timeout handle it or GIS try
+                    }
                 });
 
                 // Initialize GIS
-                tokenClient = google.accounts.oauth2.initTokenClient({
-                    client_id: CLIENT_ID,
-                    scope: SCOPES,
-                    callback: '', // defined at request time
-                });
-                gisInited = true;
-                maybeResolve();
+                try {
+                    tokenClient = google.accounts.oauth2.initTokenClient({
+                        client_id: CLIENT_ID,
+                        scope: SCOPES,
+                        callback: (resp: any) => {
+                            // Callback handler
+                        }, 
+                    });
+                    gisInited = true;
+                    maybeResolve();
+                } catch (err) {
+                    console.error("Failed to initialize GIS client", err);
+                }
             }
         }, 100);
-
-        const maybeResolve = () => {
-            if (gapiInited && gisInited) {
-                resolve(true);
-            }
-        };
     });
 };
 
 export const getGmailToken = (): Promise<void> => {
     return new Promise((resolve, reject) => {
-        if (!tokenClient) return reject("Gmail client not initialized");
+        if (!tokenClient) return reject("Gmail client not initialized. Check console for errors.");
 
         tokenClient.callback = async (resp: any) => {
             if (resp.error !== undefined) {
+                console.error("Auth Error:", resp);
                 reject(resp);
             }
             resolve(resp);
         };
 
+        // For implicit flow, prompt 'consent' is sometimes needed if cookies are stale or permissions changed.
+        // CRITICAL FIX: Do NOT pass an empty string for prompt. Google rejects 'prompt=""' with Error 400.
+        // Use undefined or 'consent'.
         if (gapi.client.getToken() === null) {
-            // Prompt the user to select a Google Account and ask for consent to share their data
             tokenClient.requestAccessToken({ prompt: 'consent' });
         } else {
-            // Skip display of account chooser and consent dialog for an existing session.
-            tokenClient.requestAccessToken({ prompt: '' });
+            tokenClient.requestAccessToken({}); // Pass empty object, not prompt: ''
         }
     });
 };
@@ -72,7 +96,7 @@ export const getGmailToken = (): Promise<void> => {
 export const sendGmail = async (to: string, subject: string, body: string) => {
     if (!gapiInited || !gisInited) {
         const initialized = await initGmailClient();
-        if (!initialized) throw new Error("Could not initialize Gmail client. Check Client ID.");
+        if (!initialized) throw new Error("Could not initialize Gmail client. Check Client ID, Origin URL, or network connection.");
     }
 
     // Check for valid token
@@ -109,9 +133,16 @@ export const sendGmail = async (to: string, subject: string, body: string) => {
     } catch (error: any) {
         // If token expired, try refreshing once
         if (error.status === 401) {
+             console.log("Token expired, refreshing...");
              await getGmailToken();
-             // Retry sending logic could go here, but for now simply prompting user to click send again is safer to avoid loops
-             throw new Error("Token expired. Re-authenticated. Please click Send again.");
+             // Retry sending logic
+             const retryResponse = await gapi.client.gmail.users.messages.send({
+                'userId': 'me',
+                'resource': {
+                    'raw': encodedMessage
+                }
+            });
+            return retryResponse;
         }
         throw error;
     }

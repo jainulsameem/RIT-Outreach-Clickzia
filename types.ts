@@ -1,4 +1,5 @@
 
+
 export interface Coords {
   latitude: number;
   longitude: number;
@@ -103,4 +104,57 @@ export interface SearchParams {
   source: SearchSource;
   profileStatus: ProfileStatus;
   numberOfResults: number;
+}
+
+// --- TIME TRACKING TYPES ---
+
+export interface Project {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export interface TimeEntry {
+  id: string;
+  userId: string;
+  projectId: string; // 'break' if it's a break
+  taskName: string;
+  startTime: string; // ISO
+  endTime: string | null; // ISO, null if active
+  type: 'work' | 'break';
+  status: 'draft' | 'submitted' | 'approved' | 'rejected'; // Deprecated in favor of WeeklyTimesheet status, but kept for individual tracking if needed
+}
+
+export interface WeeklyTimesheet {
+    id: string; // Composite: userId-startDate(YYYY-MM-DD)
+    userId: string;
+    weekStartDate: string; // Monday's date
+    status: 'draft' | 'submitted' | 'approved' | 'rejected';
+    submittedAt?: string;
+    approvedAt?: string;
+    totalHours: number;
+}
+
+export type LeaveType = 'Emergency' | 'Casual' | 'Festival' | 'Sick' | 'Unpaid';
+
+export interface TimeOffRequest {
+  id: string;
+  userId: string;
+  type: LeaveType;
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
+}
+
+export interface SalaryConfig {
+    userId: string;
+    baseSalary: number; // Monthly
+    currency: string;
+}
+
+export interface TimeAdminSettings {
+  minDailyHours: number;
+  minWeeklyHours: number;
+  leaveBalances: Record<LeaveType, number>; // Total allowed days per year
 }

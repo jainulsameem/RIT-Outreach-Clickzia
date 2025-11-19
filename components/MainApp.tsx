@@ -5,12 +5,14 @@ import { BusinessList } from './BusinessList';
 import { SettingsModal } from './SettingsModal';
 import { EmailComposerModal } from './EmailComposerModal';
 import { CrmList } from './CrmList';
-import { CrmDetailPage } from './CrmDetailPage'; // Imported the new page
+import { CrmDetailPage } from './CrmDetailPage'; 
 import { CrmFilterBar } from './CrmFilterBar';
 import { UserManagement } from './UserManagement';
 import { AddEditUserModal } from './AddEditUserModal';
 import { AddContactModal } from './AddContactModal';
-import { SettingsIcon, UserIcon, DownloadIcon, PlusIcon } from './icons';
+import { EmailPage } from './EmailPage'; // Import EmailPage
+import { TimeTrackingPage } from './TimeTrackingPage'; // Import TimeTrackingPage
+import { SettingsIcon, UserIcon, DownloadIcon, PlusIcon, InboxIcon, ClockIcon } from './icons'; // Import InboxIcon, ClockIcon
 import { useGeolocation } from '../hooks/useGeolocation';
 import { useAuth } from '../context/AuthContext';
 import { findBusinesses, findBusinessesOnFacebook, findDecisionMakers } from '../services/geminiService';
@@ -18,7 +20,7 @@ import { supabase } from '../services/supabaseClient';
 import type { Business, Settings, CrmContact, LeadStatus, User, CrmFilters, GroundingChunk, SearchParams } from '../types';
 
 // Define view states to act like pages
-type ViewState = 'search' | 'crm-list' | 'crm-detail' | 'users';
+type ViewState = 'search' | 'crm-list' | 'crm-detail' | 'users' | 'email-campaign' | 'time-tracking';
 
 export function MainApp() {
   const [view, setView] = useState<ViewState>('search');
@@ -461,24 +463,36 @@ export function MainApp() {
           </div>
 
           {/* Main Navigation - Now in Header */}
-          <nav className="flex bg-base-300/50 p-1 rounded-lg border border-white/5 backdrop-blur-sm w-full md:w-auto">
+          <nav className="flex bg-base-300/50 p-1 rounded-lg border border-white/5 backdrop-blur-sm w-full md:w-auto overflow-x-auto">
             <button 
                 onClick={() => setView('search')}
-                className={`flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-semibold transition-all ${view === 'search' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                className={`flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-semibold transition-all whitespace-nowrap ${view === 'search' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
             >
                 Search Results
             </button>
             <button 
                 onClick={() => setView(view === 'crm-detail' ? 'crm-detail' : 'crm-list')}
-                className={`flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-semibold transition-all relative ${view.startsWith('crm') ? 'bg-brand-primary text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                className={`flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-semibold transition-all relative whitespace-nowrap ${view.startsWith('crm') ? 'bg-brand-primary text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
             >
                 My CRM
                 {crmContacts.length > 0 && <span className="absolute top-1.5 right-1.5 flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-accent opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-brand-accent"></span></span>}
             </button>
+            <button 
+                onClick={() => setView('email-campaign')}
+                className={`flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-2 ${view === 'email-campaign' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+            >
+                <InboxIcon className="h-4 w-4" /> Email
+            </button>
+            <button 
+                onClick={() => setView('time-tracking')}
+                className={`flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-2 ${view === 'time-tracking' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+            >
+                <ClockIcon className="h-4 w-4" /> Time
+            </button>
             {currentUser?.role === 'admin' && (
                 <button 
                     onClick={() => setView('users')}
-                    className={`flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-semibold transition-all ${view === 'users' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                    className={`flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-semibold transition-all whitespace-nowrap ${view === 'users' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                 >
                     Users
                 </button>
@@ -594,6 +608,20 @@ export function MainApp() {
                     />
                 );
             })()}
+            
+            {/* --- EMAIL CAMPAIGN VIEW --- */}
+            {view === 'email-campaign' && (
+                <EmailPage 
+                    crmContacts={crmContacts} 
+                    settings={settings} 
+                    onUpdateContact={handleUpdateContactDetails}
+                />
+            )}
+
+            {/* --- TIME TRACKING VIEW --- */}
+            {view === 'time-tracking' && (
+                <TimeTrackingPage />
+            )}
             
             {/* --- USER MANAGEMENT VIEW --- */}
             {view === 'users' && currentUser?.role === 'admin' && (
