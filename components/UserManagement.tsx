@@ -19,6 +19,12 @@ export const UserManagement: React.FC<UserManagementProps> = ({ crmContacts, onA
         return crmContacts.filter(c => c.assignedTo === userId).length;
     };
 
+    const handleRemoveClick = (userId: string, username: string) => {
+        if (window.confirm(`Are you sure you want to delete user "${username}"? This action cannot be undone.`)) {
+            onRemoveUser(userId);
+        }
+    };
+
     return (
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
             <div className="flex justify-between items-center mb-6">
@@ -55,7 +61,12 @@ export const UserManagement: React.FC<UserManagementProps> = ({ crmContacts, onA
                                         <button onClick={() => onEditUser(user)} className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" aria-label={`Edit ${user.username}`}>
                                             <EditIcon />
                                         </button>
-                                        <button onClick={() => onRemoveUser(user.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" aria-label={`Remove ${user.username}`} disabled={users.length <= 1 || user.id === 'master-admin'}>
+                                        <button 
+                                            onClick={() => handleRemoveClick(user.id, user.username)} 
+                                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" 
+                                            aria-label={`Remove ${user.username}`} 
+                                            disabled={users.length <= 1 || user.id === 'master-admin'}
+                                        >
                                             <TrashIcon />
                                         </button>
                                     </div>

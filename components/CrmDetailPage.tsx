@@ -107,6 +107,12 @@ export const CrmDetailPage: React.FC<CrmDetailPageProps> = ({ contact, onBack, o
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
+    const handleDeleteClick = () => {
+        if (window.confirm("Are you sure you want to permanently delete this contact? This action cannot be undone.")) {
+            onRemoveFromCrm(contact.id);
+        }
+    };
+
     const getExternalUrl = (url: string) => {
         if (!url) return '';
         return url.startsWith('http') ? url : `https://${url}`;
@@ -364,7 +370,7 @@ export const CrmDetailPage: React.FC<CrmDetailPageProps> = ({ contact, onBack, o
                         </div>
 
                         <div className="mt-8 pt-6 border-t border-gray-100">
-                             <button onClick={() => onRemoveFromCrm(contact.id)} className="w-full text-red-500 hover:text-red-700 hover:bg-red-50 font-semibold py-3 px-4 rounded-xl transition-all flex items-center justify-center">
+                             <button onClick={handleDeleteClick} className="w-full text-red-500 hover:text-red-700 hover:bg-red-50 font-semibold py-3 px-4 rounded-xl transition-all flex items-center justify-center">
                                 <TrashIcon /> <span className="ml-2">Delete Contact</span>
                             </button>
                         </div>

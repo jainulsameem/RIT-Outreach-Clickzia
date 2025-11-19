@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import type { TimeEntry, Project, LeaveType, TimeOffRequest, TimeAdminSettings, WeeklyTimesheet, SalaryConfig } from '../types';
 import { PlayIcon, StopIcon, ClockIcon, CalendarCheckIcon, CheckIcon, CancelIcon, SettingsIcon, CurrencyIcon, ChevronLeftIcon, ChevronRightIcon, PlusIcon, TrashIcon, EditIcon } from './icons';
@@ -106,6 +104,7 @@ export const TimeTrackingPage: React.FC = () => {
     const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
     const [newProjectName, setNewProjectName] = useState('');
     const [newProjectColor, setNewProjectColor] = useState('#6366f1');
+    const [newProjectScope, setNewProjectScope] = useState<'global' | 'personal'>('personal');
 
     // Timesheet View State
     const [viewWeekStart, setViewWeekStart] = useState<Date>(getMonday(new Date()));
@@ -197,6 +196,13 @@ export const TimeTrackingPage: React.FC = () => {
         }
     }, [users, currentUser, adminSelectedUserId]);
 
+    useEffect(() => {
+        if (isProjectModalOpen && currentUser) {
+            // Admins default to Global, Users default to Personal
+            setNewProjectScope(currentUser.role === 'admin' ? 'global' : 'personal');
+        }
+    }, [isProjectModalOpen, currentUser]);
+
     // --- Helpers for Database Updates ---
 
     const saveTimeEntry = async (entry: TimeEntry) => {
@@ -271,7 +277,7 @@ export const TimeTrackingPage: React.FC = () => {
             id: `proj-${Date.now()}`,
             name: newProjectName.trim(),
             color: newProjectColor,
-            scope: currentUser.role === 'admin' ? 'global' : 'personal',
+            scope: newProjectScope,
             createdBy: currentUser.id
         };
 
@@ -284,6 +290,9 @@ export const TimeTrackingPage: React.FC = () => {
     };
 
     const handleDeleteProject = async (projId: string) => {
+        if (!window.confirm("Are you sure you want to delete this project? Entries associated with it may lose their label.")) {
+            return;
+        }
         setProjects(prev => prev.filter(p => p.id !== projId));
         await supabase.from('projects').delete().eq('id', projId);
     };
@@ -407,6 +416,8 @@ export const TimeTrackingPage: React.FC = () => {
                 id: newProjId,
                 name: manualProjectName.trim(),
                 color: manualProjectColor,
+                // For manual entry by Admin, force Global. For user manual entry (if enabled), assume personal.
+                // But typically only Admins manual entry. 
                 scope: currentUser.role === 'admin' ? 'global' : 'personal',
                 createdBy: currentUser.id
             };
@@ -762,7 +773,34 @@ export const TimeTrackingPage: React.FC = () => {
                                 </div>
                             </div>
                             {currentUser?.role === 'admin' && (
-                                <p className="text-xs text-indigo-600 mt-2 bg-indigo-50 p-2 rounded-lg border border-indigo-100">* As Admin, this will be a Global Project visible to all users.</p>
+                                <div>
+                                     <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Project Type</label>
+                                     <div className="flex gap-4">
+                                         <label className="flex items-center cursor-pointer">
+                                             <input 
+                                                type="radio" 
+                                                name="projectScope" 
+                                                value="global" 
+                                                checked={newProjectScope === 'global'} 
+                                                onChange={() => setNewProjectScope('global')}
+                                                className="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
+                                             />
+                                             <span className="ml-2 text-sm text-gray-900 font-medium">Global Project</span>
+                                         </label>
+                                         <label className="flex items-center cursor-pointer">
+                                             <input 
+                                                type="radio" 
+                                                name="projectScope" 
+                                                value="personal" 
+                                                checked={newProjectScope === 'personal'} 
+                                                onChange={() => setNewProjectScope('personal')}
+                                                className="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
+                                             />
+                                             <span className="ml-2 text-sm text-gray-900 font-medium">Personal Project</span>
+                                         </label>
+                                     </div>
+                                     <p className="text-xs text-gray-500 mt-1">Global projects are visible to all users.</p>
+                                </div>
                             )}
                         </div>
                         <div className="flex justify-end gap-3 mt-8">
@@ -1312,7 +1350,16 @@ export const TimeTrackingPage: React.FC = () => {
                                                                     <td className="p-4 text-right">
                                                                         <div className="flex justify-end gap-2">
                                                                             <button onClick={() => openEntryModal(e, adminSelectedUserId)} className="p-2 text-gray-400 hover:text-indigo-600 bg-gray-100 hover:bg-indigo-50 rounded-lg transition-colors"><EditIcon className="h-4 w-4"/></button>
-                                                                            <button onClick={() => deleteTimeEntry(e.id)} className="p-2 text-gray-400 hover:text-red-600 bg-gray-100 hover:bg-red-50 rounded-lg transition-colors"><TrashIcon className="h-4 w-4"/></button>
+                                                                            <button 
+                                                                                onClick={() => {
+                                                                                    if(window.confirm("Are you sure you want to delete this time entry?")) {
+                                                                                        deleteTimeEntry(e.id);
+                                                                                    }
+                                                                                }} 
+                                                                                className="p-2 text-gray-400 hover:text-red-600 bg-gray-100 hover:bg-red-50 rounded-lg transition-colors"
+                                                                            >
+                                                                                <TrashIcon className="h-4 w-4"/>
+                                                                            </button>
                                                                         </div>
                                                                     </td>
                                                                 </tr>
@@ -1449,76 +1496,6 @@ export const TimeTrackingPage: React.FC = () => {
                                  <span className="text-blue-500 font-bold">ℹ️</span> 
                                  Missed Days are work days ({adminSettings.workConfig?.daysPerWeek || 5} days/week starting {WEEK_DAYS.find(d => d.val === (adminSettings.workConfig?.startDay || 1))?.label}) with no logged time and no approved leave. LOP are Approved 'Unpaid' leave days.
                              </p>
-                         </div>
-                    </div>
-                </div>
-            )}
-
-            {/* --- TIME OFF TAB --- */}
-            {activeTab === 'timeoff' && (
-                <div className="animate-fadeIn space-y-6">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                         {/* Request Form */}
-                         {currentUser?.role === 'user' && (
-                             <div className="lg:col-span-1 bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
-                                 <h3 className="text-lg font-bold text-gray-900 mb-6">Request Time Off</h3>
-                                 <form onSubmit={handleBookLeave} className="space-y-5">
-                                     <div>
-                                         <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Type</label>
-                                         <select 
-                                            value={leaveForm.type}
-                                            onChange={e => setLeaveForm({...leaveForm, type: e.target.value as LeaveType})}
-                                            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"
-                                         >
-                                             {Object.keys(adminSettings.leaveBalances).map(type => (
-                                                 <option key={type} value={type}>{type} (Bal: {calculateBalance(currentUser.id, type as LeaveType)})</option>
-                                             ))}
-                                         </select>
-                                     </div>
-                                     <div className="grid grid-cols-2 gap-4">
-                                         <div>
-                                             <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Start</label>
-                                             <input type="date" value={leaveForm.startDate} onChange={e => setLeaveForm({...leaveForm, startDate: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none" required />
-                                         </div>
-                                         <div>
-                                             <label className="text-xs font-bold text-gray-500 uppercase block mb-1">End</label>
-                                             <input type="date" value={leaveForm.endDate} onChange={e => setLeaveForm({...leaveForm, endDate: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none" required />
-                                         </div>
-                                     </div>
-                                     <div>
-                                         <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Reason</label>
-                                         <textarea value={leaveForm.reason} onChange={e => setLeaveForm({...leaveForm, reason: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none" rows={3} placeholder="Why are you requesting off?"></textarea>
-                                     </div>
-                                     <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-95">Submit Request</button>
-                                 </form>
-                             </div>
-                         )}
-
-                         {/* Leave History / Approvals */}
-                         <div className={`${currentUser?.role === 'user' ? 'lg:col-span-2' : 'lg:col-span-3'} bg-white p-6 rounded-3xl border border-gray-200 shadow-sm`}>
-                             <h3 className="text-lg font-bold text-gray-900 mb-6">{currentUser?.role === 'admin' ? 'Pending Requests' : 'My Requests'}</h3>
-                             <div className="space-y-4">
-                                 {leaveRequests.length === 0 && <div className="text-center py-12 bg-gray-50 rounded-2xl border border-dashed border-gray-200 text-gray-400 italic">No leave records found.</div>}
-                                 
-                                 {leaveRequests.map(req => (
-                                     <div key={req.id} className="bg-gray-50 p-5 rounded-2xl border border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition-all hover:shadow-md">
-                                         <div>
-                                             <p className="text-gray-900 font-bold text-lg">{currentUser?.role === 'admin' ? users.find(u => u.id === req.userId)?.username : req.type} <span className="text-sm font-normal text-gray-500 bg-white px-2 py-0.5 rounded border border-gray-200 ml-2">{req.startDate} to {req.endDate}</span></p>
-                                             <p className="text-sm text-gray-600 mt-1 italic">"{req.reason}"</p>
-                                         </div>
-                                         <div className="flex items-center gap-3 w-full sm:w-auto">
-                                             {currentUser?.role === 'admin' && req.status === 'pending' ? (
-                                                 <>
-                                                     <button onClick={() => handleLeaveAction(req.id, 'approve')} className="flex-1 sm:flex-none bg-green-100 hover:bg-green-200 text-green-700 px-4 py-2 rounded-xl text-sm font-bold transition-colors">Approve</button>
-                                                     <button onClick={() => handleLeaveAction(req.id, 'reject')} className="flex-1 sm:flex-none bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded-xl text-sm font-bold transition-colors">Reject</button>
-                                                 </>
-                                             ) : (
-                                                 getStatusBadge(req.status)
-                                             )}
-                                         </div>
-                                     </div>
-                                 ))}
-                             </div>
                          </div>
                     </div>
                 </div>
