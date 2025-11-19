@@ -726,6 +726,22 @@ export const TimeTrackingPage: React.FC = () => {
                     <div className="bg-white p-6 rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md transform transition-all">
                         <h3 className="text-xl font-bold text-gray-900 mb-6">{manualEntryForm.id ? 'Edit Entry' : 'Add Manual Entry'}</h3>
                         <div className="space-y-5">
+                             {/* User Selection for Admins */}
+                             {currentUser?.role === 'admin' && (
+                                <div>
+                                    <label className="text-xs font-bold text-gray-500 uppercase block mb-1">User</label>
+                                    <select
+                                        value={manualEntryForm.userId}
+                                        onChange={e => setManualEntryForm({...manualEntryForm, userId: e.target.value})}
+                                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    >
+                                        {users.map(u => (
+                                            <option key={u.id} value={u.id}>{u.username}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                             )}
+
                              <div>
                                 <div className="flex justify-between items-center mb-2">
                                     <label className="text-xs font-bold text-gray-500 uppercase">Project</label>
