@@ -172,19 +172,41 @@ export const TimeTrackingPage: React.FC = () => {
     useEffect(() => {
         // Set default admin user selection if not set
         if (currentUser?.role === 'admin' && !adminSelectedUserId && users.length > 0) {
-            setAdminSelectedUserId(users[0].id);
+            // Default to first non-admin user if possible, else first user
+            const firstUser = users.find(u => u.role !== 'admin') || users[0];
+            if (firstUser) setAdminSelectedUserId(firstUser.id);
         }
     }, [users, currentUser, adminSelectedUserId]);
 
     // --- Helpers for Database Updates ---
 
     const saveTimeEntry = async (entry: TimeEntry) => {
+        // Optimistic update
         setEntries(prev => {
             const exists = prev.find(e => e.id === entry.id);
             if (exists) return prev.map(e => e.id === entry.id ? entry : e);
             return [entry, ...prev];
         });
-        await supabase.from('time_entries').upsert({ id: entry.id, user_id: entry.userId, data: entry });
+        
+        // IMPORTANT: Explicitly map userId to user_id column for row-level security/filtering to work
+        const { error } = await supabase.from('time_entries').upsert({ 
+            id: entry.id, 
+            user_id: entry.userId, 
+            data: entry 
+        });
+
+        if (error) {
+            console.error("Error saving time entry:", error);
+            alert("Failed to save entry to database. Please try again.");
+            // Revert optimistic update could go here, but simple reload is safer
+            fetchData();
+        } else {
+            // Re-fetch to ensure sync, especially if we created for another user
+             if (entry.userId !== currentUser?.id) {
+                 // Small delay to ensure DB write propagation
+                 setTimeout(fetchData, 200); 
+             }
+        }
     };
 
     const deleteTimeEntry = async (entryId: string) => {
@@ -309,7 +331,7 @@ export const TimeTrackingPage: React.FC = () => {
 
     // --- Logic: Manual Entry (Admin) ---
 
-    const openEntryModal = (entry?: TimeEntry, userId?: string) => {
+    const openEntryModal = (entry?: TimeEntry, targetUserId?: string) => {
         setIsManualProjectInput(false);
         setManualProjectName('');
         setManualProjectColor('#6366f1');
@@ -326,9 +348,13 @@ export const TimeTrackingPage: React.FC = () => {
             });
         } else {
             const now = new Date();
+            // CRITICAL FIX: Ensure correct User ID is selected.
+            // Priority: Passed targetUserId -> adminSelectedUserId -> currentUser.id
+            const effectiveUserId = targetUserId || adminSelectedUserId || currentUser?.id || '';
+            
             setManualEntryForm({
                 id: '',
-                userId: userId || currentUser?.id || '',
+                userId: effectiveUserId,
                 date: formatDateISO(now),
                 startTime: '09:00',
                 endTime: '17:00',
@@ -361,7 +387,7 @@ export const TimeTrackingPage: React.FC = () => {
             const newProj: Project = {
                 id: newProjId,
                 name: manualProjectName.trim(),
-                color: manualProjectColor, // Use selected color
+                color: manualProjectColor,
                 scope: currentUser.role === 'admin' ? 'global' : 'personal',
                 createdBy: currentUser.id
             };
@@ -390,7 +416,7 @@ export const TimeTrackingPage: React.FC = () => {
         const isBreak = finalProjectId === 'break';
         const entry: TimeEntry = {
             id: id || `manual-${Date.now()}`,
-            userId,
+            userId: userId, // Explicitly set the target user ID
             projectId: finalProjectId,
             taskName: isBreak ? 'Break' : (taskName || 'Manual Entry'),
             startTime: startIso,
