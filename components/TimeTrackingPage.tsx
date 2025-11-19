@@ -647,10 +647,10 @@ export const TimeTrackingPage: React.FC = () => {
     // --- Render Helpers ---
     const getStatusBadge = (status: string) => {
         switch(status) {
-            case 'approved': return <span className="bg-green-900/50 text-green-400 px-2 py-1 rounded text-xs font-bold border border-green-500/30">Approved</span>;
-            case 'rejected': return <span className="bg-red-900/50 text-red-400 px-2 py-1 rounded text-xs font-bold border border-red-500/30">Rejected</span>;
-            case 'submitted': return <span className="bg-blue-900/50 text-blue-400 px-2 py-1 rounded text-xs font-bold border border-blue-500/30">Submitted</span>;
-            default: return <span className="bg-gray-700 text-gray-400 px-2 py-1 rounded text-xs font-bold border border-gray-600">Draft</span>;
+            case 'approved': return <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-bold border border-green-200">Approved</span>;
+            case 'rejected': return <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-bold border border-red-200">Rejected</span>;
+            case 'submitted': return <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-bold border border-blue-200">Submitted</span>;
+            default: return <span className="bg-gray-100 text-gray-500 px-2 py-1 rounded-full text-xs font-bold border border-gray-200">Draft</span>;
         }
     };
 
@@ -675,44 +675,46 @@ export const TimeTrackingPage: React.FC = () => {
     const personalProjects = visibleProjects.filter(p => p.scope === 'personal');
 
     return (
-        <div className="space-y-6 relative">
+        // Bright Theme Container Override
+        <div className="bg-gray-50 min-h-screen p-4 md:p-6 lg:p-8 rounded-3xl text-gray-800 font-sans transition-colors duration-300 relative">
+             
              {/* Project Creation Modal */}
             {isProjectModalOpen && (
-                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-                    <div className="bg-base-200 p-6 rounded-xl border border-white/10 w-full max-w-sm">
-                        <h3 className="text-lg font-bold text-white mb-4">Create New Project</h3>
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white p-6 rounded-2xl shadow-2xl border border-gray-100 w-full max-w-sm transform transition-all scale-100">
+                        <h3 className="text-xl font-bold text-gray-900 mb-4">Create New Project</h3>
                         <div className="space-y-4">
                             <div>
-                                <label className="text-xs font-bold text-gray-400 uppercase block mb-1">Project Name</label>
+                                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Project Name</label>
                                 <input 
                                     autoFocus
                                     type="text" 
                                     value={newProjectName}
                                     onChange={e => setNewProjectName(e.target.value)}
-                                    className="w-full bg-base-300 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
                                     placeholder="e.g. Mobile App Design"
                                 />
                             </div>
                             <div>
-                                <label className="text-xs font-bold text-gray-400 uppercase block mb-1">Color Tag</label>
-                                <div className="flex gap-2 flex-wrap">
+                                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Color Tag</label>
+                                <div className="flex gap-3 flex-wrap">
                                     {['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#f43f5e'].map(color => (
                                         <button
                                             key={color}
                                             onClick={() => setNewProjectColor(color)}
-                                            className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${newProjectColor === color ? 'border-white scale-110' : 'border-transparent'}`}
+                                            className={`w-8 h-8 rounded-full shadow-sm transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${newProjectColor === color ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : ''}`}
                                             style={{ backgroundColor: color }}
                                         />
                                     ))}
                                 </div>
                             </div>
                             {currentUser?.role === 'admin' && (
-                                <p className="text-xs text-brand-secondary mt-2">* As Admin, this will be a Global Project visible to all users.</p>
+                                <p className="text-xs text-indigo-600 mt-2 bg-indigo-50 p-2 rounded-lg border border-indigo-100">* As Admin, this will be a Global Project visible to all users.</p>
                             )}
                         </div>
-                        <div className="flex justify-end gap-3 mt-6">
-                            <button onClick={() => setIsProjectModalOpen(false)} className="px-4 py-2 text-gray-400 hover:text-white">Cancel</button>
-                            <button onClick={handleCreateProject} className="bg-brand-primary hover:bg-brand-secondary text-white font-bold py-2 px-4 rounded-lg">Create Project</button>
+                        <div className="flex justify-end gap-3 mt-8">
+                            <button onClick={() => setIsProjectModalOpen(false)} className="px-4 py-2 text-gray-500 hover:text-gray-800 font-medium transition-colors">Cancel</button>
+                            <button onClick={handleCreateProject} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-95">Create Project</button>
                         </div>
                     </div>
                 </div>
@@ -720,29 +722,29 @@ export const TimeTrackingPage: React.FC = () => {
 
              {/* Manual Entry Modal (Admin) */}
              {isEntryModalOpen && (
-                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-                    <div className="bg-base-200 p-6 rounded-xl border border-white/10 w-full max-w-md">
-                        <h3 className="text-lg font-bold text-white mb-4">{manualEntryForm.id ? 'Edit Entry' : 'Add Manual Entry'}</h3>
-                        <div className="space-y-4">
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white p-6 rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md transform transition-all">
+                        <h3 className="text-xl font-bold text-gray-900 mb-6">{manualEntryForm.id ? 'Edit Entry' : 'Add Manual Entry'}</h3>
+                        <div className="space-y-5">
                              <div>
-                                <div className="flex justify-between items-center mb-1">
-                                    <label className="text-xs font-bold text-gray-400 uppercase">Project</label>
+                                <div className="flex justify-between items-center mb-2">
+                                    <label className="text-xs font-bold text-gray-500 uppercase">Project</label>
                                     <button 
                                         onClick={() => setIsManualProjectInput(!isManualProjectInput)}
-                                        className="text-[10px] text-brand-primary hover:underline font-bold"
+                                        className="text-xs text-indigo-600 hover:text-indigo-800 font-bold underline"
                                     >
-                                        {isManualProjectInput ? 'Select Existing' : '+ New Project'}
+                                        {isManualProjectInput ? 'Select Existing' : '+ Create New Project'}
                                     </button>
                                 </div>
                                 
                                 {isManualProjectInput ? (
-                                    <div className="space-y-2">
+                                    <div className="space-y-3">
                                         <input 
                                             type="text"
                                             value={manualProjectName}
                                             onChange={e => setManualProjectName(e.target.value)}
                                             placeholder="Enter new project name..."
-                                            className="w-full bg-base-300 border border-brand-primary/50 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-brand-primary"
+                                            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"
                                         />
                                         {/* Project Color Picker for Manual Entry */}
                                         <div className="flex gap-2 flex-wrap pt-1">
@@ -750,166 +752,193 @@ export const TimeTrackingPage: React.FC = () => {
                                                 <button
                                                     key={color}
                                                     onClick={() => setManualProjectColor(color)}
-                                                    className={`w-5 h-5 rounded-full border-2 transition-transform hover:scale-110 ${manualProjectColor === color ? 'border-white scale-110' : 'border-transparent'}`}
+                                                    className={`w-6 h-6 rounded-full shadow-sm transition-transform hover:scale-110 ${manualProjectColor === color ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : ''}`}
                                                     style={{ backgroundColor: color }}
                                                 />
                                             ))}
                                         </div>
                                     </div>
                                 ) : (
-                                    <select 
-                                        value={manualEntryForm.projectId}
-                                        onChange={e => setManualEntryForm({...manualEntryForm, projectId: e.target.value})}
-                                        className="w-full bg-base-300 border border-gray-600 rounded-lg px-3 py-2 text-white"
-                                    >
-                                        <option value="" disabled>Select Project</option>
-                                        <option value="break">-- BREAK --</option>
-                                        {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                                    </select>
+                                    <div className="relative">
+                                        <select 
+                                            value={manualEntryForm.projectId}
+                                            onChange={e => setManualEntryForm({...manualEntryForm, projectId: e.target.value})}
+                                            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 appearance-none focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        >
+                                            <option value="" disabled>Select Project</option>
+                                            <option value="break">-- BREAK --</option>
+                                            {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                        </select>
+                                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none text-gray-400">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                        </div>
+                                    </div>
                                 )}
                             </div>
                             {(manualEntryForm.projectId !== 'break' && !isManualProjectInput || isManualProjectInput) && (
                                 <div>
-                                    <label className="text-xs font-bold text-gray-400 uppercase block mb-1">Task</label>
+                                    <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Task</label>
                                     <input 
                                         type="text" 
                                         value={manualEntryForm.taskName}
                                         onChange={e => setManualEntryForm({...manualEntryForm, taskName: e.target.value})}
-                                        className="w-full bg-base-300 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"
                                         placeholder="Task description"
                                     />
                                 </div>
                             )}
                              <div>
-                                <label className="text-xs font-bold text-gray-400 uppercase block mb-1">Date</label>
+                                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Date</label>
                                 <input 
                                     type="date" 
                                     value={manualEntryForm.date}
                                     onChange={e => setManualEntryForm({...manualEntryForm, date: e.target.value})}
-                                    className="w-full bg-base-300 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"
                                 />
                             </div>
                              <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="text-xs font-bold text-gray-400 uppercase block mb-1">Start Time</label>
+                                    <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Start Time</label>
                                     <input 
                                         type="time" 
                                         value={manualEntryForm.startTime}
                                         onChange={e => setManualEntryForm({...manualEntryForm, startTime: e.target.value})}
-                                        className="w-full bg-base-300 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-xs font-bold text-gray-400 uppercase block mb-1">End Time</label>
+                                    <label className="text-xs font-bold text-gray-500 uppercase block mb-1">End Time</label>
                                     <input 
                                         type="time" 
                                         value={manualEntryForm.endTime}
                                         onChange={e => setManualEntryForm({...manualEntryForm, endTime: e.target.value})}
-                                        className="w-full bg-base-300 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"
                                     />
                                 </div>
                              </div>
                         </div>
-                        <div className="flex justify-end gap-3 mt-6">
-                            <button onClick={() => setIsEntryModalOpen(false)} className="px-4 py-2 text-gray-400 hover:text-white">Cancel</button>
-                            <button onClick={handleSaveManualEntry} className="bg-brand-primary hover:bg-brand-secondary text-white font-bold py-2 px-4 rounded-lg">Save Entry</button>
+                        <div className="flex justify-end gap-3 mt-8">
+                            <button onClick={() => setIsEntryModalOpen(false)} className="px-4 py-2 text-gray-500 hover:text-gray-800 font-medium transition-colors">Cancel</button>
+                            <button onClick={handleSaveManualEntry} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-95">Save Entry</button>
                         </div>
                     </div>
                 </div>
             )}
 
 
-            {/* Header Tabs */}
-            <div className="flex flex-wrap gap-2 bg-base-200/50 p-1 rounded-xl border border-white/5">
-                <button onClick={() => setActiveTab('tracker')} className={`flex items-center px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'tracker' ? 'bg-brand-primary text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                    <ClockIcon className="mr-2 h-4 w-4" /> Tracker
-                </button>
-                <button onClick={() => setActiveTab('timesheet')} className={`flex items-center px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'timesheet' ? 'bg-brand-primary text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                    <CalendarCheckIcon className="mr-2 h-4 w-4" /> Timesheets
-                </button>
-                <button onClick={() => setActiveTab('timeoff')} className={`flex items-center px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'timeoff' ? 'bg-brand-primary text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                    <span className="mr-2">🏖️</span> Time Off
-                </button>
-                {currentUser?.role === 'admin' && (
-                    <>
-                        <button onClick={() => setActiveTab('payroll')} className={`flex items-center px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'payroll' ? 'bg-brand-primary text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                            <CurrencyIcon className="mr-2 h-4 w-4" /> Payroll
-                        </button>
-                        <button onClick={() => setActiveTab('admin')} className={`flex items-center px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'admin' ? 'bg-brand-primary text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                            <SettingsIcon className="mr-2 h-4 w-4" /> Settings
-                        </button>
-                    </>
-                )}
-                 <button onClick={fetchData} className="ml-auto text-gray-400 hover:text-white p-2" title="Refresh Data">
-                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            {/* Top Navigation Bar */}
+            <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+                <div className="flex items-center gap-3">
+                    <div className="bg-white p-2 rounded-xl shadow-sm border border-gray-100">
+                         <ClockIcon className="h-6 w-6 text-indigo-600" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">Time Tracking</h1>
+                        <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">Manage your hours</p>
+                    </div>
+                </div>
+                
+                 <button onClick={fetchData} className="text-gray-400 hover:text-indigo-600 p-2 bg-white rounded-full shadow-sm border border-gray-100 hover:border-indigo-100 transition-all" title="Refresh Data">
+                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${isLoading ? 'animate-spin text-indigo-600' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                 </button>
             </div>
 
+            {/* Tabs Navigation */}
+            <div className="bg-white p-1.5 rounded-2xl shadow-sm border border-gray-200 inline-flex flex-wrap gap-1 mb-8 w-full md:w-auto overflow-x-auto no-scrollbar">
+                <button onClick={() => setActiveTab('tracker')} className={`flex items-center px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap flex-1 md:flex-none justify-center ${activeTab === 'tracker' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}>
+                    <ClockIcon className="mr-2 h-4 w-4" /> Tracker
+                </button>
+                <button onClick={() => setActiveTab('timesheet')} className={`flex items-center px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap flex-1 md:flex-none justify-center ${activeTab === 'timesheet' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}>
+                    <CalendarCheckIcon className="mr-2 h-4 w-4" /> Timesheets
+                </button>
+                <button onClick={() => setActiveTab('timeoff')} className={`flex items-center px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap flex-1 md:flex-none justify-center ${activeTab === 'timeoff' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}>
+                    <span className="mr-2">🏖️</span> Time Off
+                </button>
+                {currentUser?.role === 'admin' && (
+                    <>
+                        <button onClick={() => setActiveTab('payroll')} className={`flex items-center px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap flex-1 md:flex-none justify-center ${activeTab === 'payroll' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}>
+                            <CurrencyIcon className="mr-2 h-4 w-4" /> Payroll
+                        </button>
+                        <button onClick={() => setActiveTab('admin')} className={`flex items-center px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap flex-1 md:flex-none justify-center ${activeTab === 'admin' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}>
+                            <SettingsIcon className="mr-2 h-4 w-4" /> Settings
+                        </button>
+                    </>
+                )}
+            </div>
+
             {/* --- TRACKER TAB --- */}
             {activeTab === 'tracker' && (
                 <div className="animate-fadeIn space-y-6">
-                    <div className="glass-panel p-8 rounded-2xl border border-white/10 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl relative overflow-hidden">
-                        {activeEntryId && <div className="absolute inset-0 bg-brand-primary/5 animate-pulse pointer-events-none"></div>}
+                    {/* Hero Timer Card */}
+                    <div className="bg-white p-6 md:p-10 rounded-3xl border border-gray-200 shadow-xl flex flex-col xl:flex-row items-center justify-between gap-8 relative overflow-hidden">
+                        {activeEntryId && <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 animate-pulse"></div>}
                         
-                        <div className="w-full md:w-auto flex-grow space-y-4 relative z-10">
-                            <h2 className="text-gray-400 text-xs font-bold uppercase tracking-widest">Current Activity</h2>
-                            <div className="flex flex-col sm:flex-row gap-4">
-                                <input 
-                                    type="text" 
-                                    value={taskName}
-                                    onChange={e => setTaskName(e.target.value)}
-                                    placeholder="What are you working on?"
-                                    className="flex-grow bg-base-300/50 border border-gray-600 rounded-xl px-4 py-3 text-white text-lg focus:ring-2 focus:ring-brand-primary disabled:opacity-60"
-                                    disabled={!!activeEntryId && activeEntryId.includes('break')}
-                                />
-                                <div className="flex gap-2">
-                                    <select 
-                                        value={selectedProject}
-                                        onChange={e => setSelectedProject(e.target.value)}
-                                        className="bg-base-300/50 border border-gray-600 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-brand-primary disabled:opacity-60 min-w-[180px]"
-                                        disabled={!!activeEntryId}
-                                    >
-                                        <option value="" disabled>Select Project</option>
-                                        {globalProjects.length > 0 && (
-                                            <optgroup label="Global Projects">
-                                                {globalProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                                            </optgroup>
-                                        )}
-                                        {personalProjects.length > 0 && (
-                                            <optgroup label="My Projects">
-                                                {personalProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                                            </optgroup>
-                                        )}
-                                    </select>
+                        <div className="w-full xl:w-auto flex-grow space-y-4 relative z-10">
+                            <h2 className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-1">What are you working on?</h2>
+                            <div className="flex flex-col md:flex-row gap-4">
+                                <div className="flex-grow relative">
+                                    <input 
+                                        type="text" 
+                                        value={taskName}
+                                        onChange={e => setTaskName(e.target.value)}
+                                        placeholder="Type task description..."
+                                        className="w-full bg-gray-50 border-2 border-gray-200 rounded-2xl px-5 py-4 text-gray-900 text-lg font-medium focus:ring-0 focus:border-indigo-500 transition-all disabled:bg-gray-100 disabled:text-gray-400 outline-none"
+                                        disabled={!!activeEntryId && activeEntryId.includes('break')}
+                                    />
+                                </div>
+                                <div className="flex gap-2 w-full md:w-auto">
+                                    <div className="relative w-full md:w-64">
+                                        <select 
+                                            value={selectedProject}
+                                            onChange={e => setSelectedProject(e.target.value)}
+                                            className="w-full h-full bg-gray-50 border-2 border-gray-200 rounded-2xl px-5 py-4 text-gray-900 font-medium appearance-none focus:ring-0 focus:border-indigo-500 outline-none disabled:bg-gray-100 disabled:text-gray-400"
+                                            disabled={!!activeEntryId}
+                                        >
+                                            <option value="" disabled>Select Project</option>
+                                            {globalProjects.length > 0 && (
+                                                <optgroup label="Global Projects">
+                                                    {globalProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                                </optgroup>
+                                            )}
+                                            {personalProjects.length > 0 && (
+                                                <optgroup label="My Projects">
+                                                    {personalProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                                </optgroup>
+                                            )}
+                                        </select>
+                                        <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none text-gray-400">
+                                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                        </div>
+                                    </div>
                                     <button 
                                         onClick={() => setIsProjectModalOpen(true)}
                                         disabled={!!activeEntryId}
-                                        className="bg-base-300/50 hover:bg-base-200 border border-gray-600 rounded-xl px-3 text-white disabled:opacity-50"
+                                        className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border-2 border-indigo-100 rounded-2xl px-4 flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                         title="Create New Project"
                                     >
-                                        <PlusIcon className="h-5 w-5" />
+                                        <PlusIcon className="h-6 w-6" />
                                     </button>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-6 relative z-10">
-                            <div className="text-4xl md:text-5xl font-mono font-bold text-white tracking-wider tabular-nums">
+                        <div className="flex flex-col sm:flex-row items-center gap-6 relative z-10 w-full xl:w-auto justify-center">
+                            <div className="text-6xl md:text-7xl font-mono font-bold text-gray-900 tracking-tighter tabular-nums drop-shadow-sm">
                                 {formatDuration(elapsedTime)}
                             </div>
                             {!activeEntryId ? (
-                                <div className="flex gap-2">
-                                    <button onClick={() => handleStartTimer(false)} className="bg-green-600 hover:bg-green-500 text-white p-4 rounded-full shadow-lg shadow-green-900/30 transition-transform transform active:scale-95">
-                                        <PlayIcon className="h-8 w-8" />
+                                <div className="flex gap-3">
+                                    <button onClick={() => handleStartTimer(false)} className="bg-indigo-600 hover:bg-indigo-700 text-white h-20 w-20 rounded-full shadow-xl shadow-indigo-200 transition-all transform active:scale-95 flex items-center justify-center group">
+                                        <PlayIcon className="h-10 w-10 ml-1 group-hover:scale-110 transition-transform" />
                                     </button>
-                                    <button onClick={() => handleStartTimer(true)} className="bg-yellow-600 hover:bg-yellow-500 text-white p-4 rounded-full shadow-lg shadow-yellow-900/30 transition-transform transform active:scale-95" title="Start Break">
-                                        <span className="text-xl font-bold">☕</span>
+                                    <button onClick={() => handleStartTimer(true)} className="bg-amber-400 hover:bg-amber-500 text-white h-20 w-20 rounded-full shadow-xl shadow-amber-200 transition-all transform active:scale-95 flex items-center justify-center group" title="Start Break">
+                                        <span className="text-3xl group-hover:scale-110 transition-transform">☕</span>
                                     </button>
                                 </div>
                             ) : (
-                                <button onClick={handleStopTimer} className="bg-red-600 hover:bg-red-500 text-white p-4 rounded-full shadow-lg shadow-red-900/30 transition-transform transform active:scale-95 animate-bounce-slow">
+                                <button onClick={handleStopTimer} className="bg-red-500 hover:bg-red-600 text-white h-20 w-20 rounded-full shadow-xl shadow-red-200 transition-all transform active:scale-95 flex items-center justify-center animate-pulse">
                                     <StopIcon className="h-8 w-8" />
                                 </button>
                             )}
@@ -918,15 +947,15 @@ export const TimeTrackingPage: React.FC = () => {
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* --- TODAY'S ACTIVITY LIST --- */}
-                        <div className="lg:col-span-2 glass-panel p-6 rounded-xl border border-white/10">
-                            <div className="flex justify-between items-center mb-4">
-                                <h3 className="text-lg font-bold text-white">Today's Activity</h3>
-                                <span className="text-sm font-mono text-brand-primary bg-brand-primary/10 px-2 py-1 rounded border border-brand-primary/20">
+                        <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="text-lg font-bold text-gray-800">Today's Activity</h3>
+                                <span className="text-sm font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
                                     Total: {todayTotalHours.toFixed(2)} hrs
                                 </span>
                             </div>
-                            <div className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
-                                {todayEntries.length === 0 && <p className="text-gray-500 italic text-sm text-center py-4">No activity recorded today.</p>}
+                            <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                                {todayEntries.length === 0 && <p className="text-gray-400 italic text-sm text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">No activity recorded today. Start tracking!</p>}
                                 {todayEntries.map(entry => {
                                     const project = projects.find(p => p.id === entry.projectId);
                                     const start = new Date(entry.startTime);
@@ -935,17 +964,19 @@ export const TimeTrackingPage: React.FC = () => {
                                     const isActive = !entry.endTime;
                                     
                                     return (
-                                        <div key={entry.id} className={`flex items-center justify-between bg-base-300/30 p-3 rounded-lg border ${isActive ? 'border-brand-primary/40 bg-brand-primary/5' : 'border-white/5'}`}>
-                                            <div className="flex items-center gap-3 overflow-hidden">
-                                                <div className={`w-3 h-3 rounded-full flex-shrink-0 ${entry.type === 'break' ? 'bg-yellow-500' : ''} ${isActive ? 'animate-pulse' : ''}`} style={{ backgroundColor: entry.type === 'work' ? project?.color : undefined }}></div>
+                                        <div key={entry.id} className={`group flex items-center justify-between p-4 rounded-xl border transition-all hover:shadow-md ${isActive ? 'bg-indigo-50/50 border-indigo-200' : 'bg-white border-gray-100 hover:border-gray-200'}`}>
+                                            <div className="flex items-center gap-4 overflow-hidden">
+                                                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white shadow-sm flex-shrink-0 ${entry.type === 'break' ? 'bg-amber-400' : ''} ${isActive ? 'animate-pulse' : ''}`} style={{ backgroundColor: entry.type === 'work' ? project?.color : undefined }}>
+                                                    {entry.type === 'break' ? '☕' : (project?.name.charAt(0) || 'P')}
+                                                </div>
                                                 <div className="min-w-0">
-                                                    <p className="text-white font-medium truncate text-sm">{entry.taskName}</p>
-                                                    <p className="text-xs text-gray-400 truncate">
-                                                        {project?.name || (entry.type === 'break' ? 'Break' : 'Unknown Project')} • {start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {end ? end.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Now'}
+                                                    <p className="text-gray-900 font-bold truncate text-base group-hover:text-indigo-600 transition-colors">{entry.taskName}</p>
+                                                    <p className="text-xs text-gray-500 truncate font-medium">
+                                                        {project?.name || (entry.type === 'break' ? 'Break' : 'Unknown')} • {start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {end ? end.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Now'}
                                                     </p>
                                                 </div>
                                             </div>
-                                            <div className="text-white font-mono text-sm font-bold whitespace-nowrap ml-4">
+                                            <div className="text-gray-700 font-mono text-lg font-bold whitespace-nowrap ml-4 bg-gray-100 px-3 py-1 rounded-lg">
                                                 {formatDuration(duration)}
                                             </div>
                                         </div>
@@ -955,33 +986,46 @@ export const TimeTrackingPage: React.FC = () => {
                         </div>
 
                         {/* --- CURRENT WEEK STATUS --- */}
-                        <div className="lg:col-span-1 glass-panel p-6 rounded-xl border border-white/10 flex flex-col">
-                            <h3 className="text-lg font-bold text-white mb-4">Current Week Status</h3>
-                            <div className="flex-grow flex flex-col justify-center space-y-4">
-                                <div className="flex justify-between items-end">
-                                     <span className="text-gray-400 text-sm">Worked</span>
-                                     <span className="text-xl font-bold text-white">{currentWeekWorked.toFixed(2)}h</span>
+                        <div className="lg:col-span-1 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col">
+                            <h3 className="text-lg font-bold text-gray-800 mb-6">Weekly Summary</h3>
+                            <div className="flex-grow flex flex-col justify-center space-y-6">
+                                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                    <div className="flex justify-between items-end mb-1">
+                                        <span className="text-gray-500 text-xs font-bold uppercase">Worked</span>
+                                        <span className="text-2xl font-bold text-gray-900">{currentWeekWorked.toFixed(2)}<span className="text-sm text-gray-400 font-normal">h</span></span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                        <div className="bg-indigo-600 h-1.5 rounded-full" style={{ width: `${Math.min(100, (currentWeekWorked / adminSettings.minWeeklyHours) * 100)}%` }}></div>
+                                    </div>
                                 </div>
-                                <div className="flex justify-between items-end">
-                                     <span className="text-gray-400 text-sm">Leave Credit</span>
-                                     <span className="text-xl font-bold text-brand-light">{currentWeekLeaves}h</span>
+                                
+                                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                    <div className="flex justify-between items-end mb-1">
+                                        <span className="text-gray-500 text-xs font-bold uppercase">Leave Credit</span>
+                                        <span className="text-2xl font-bold text-amber-500">{currentWeekLeaves}<span className="text-sm text-gray-400 font-normal">h</span></span>
+                                    </div>
                                 </div>
-                                <div className="h-px bg-white/10 my-2"></div>
-                                <div className="flex justify-between items-end">
-                                     <span className="text-gray-300 font-bold text-sm">Total</span>
-                                     <span className={`text-2xl font-bold ${currentWeekTotal >= adminSettings.minWeeklyHours ? 'text-green-400' : 'text-yellow-400'}`}>
-                                         {currentWeekTotal.toFixed(2)}h
-                                     </span>
+
+                                <div className="flex justify-between items-center pt-4 border-t border-gray-100">
+                                     <div className="flex flex-col">
+                                         <span className="text-gray-400 text-xs font-bold uppercase">Total Effective</span>
+                                         <span className={`text-3xl font-bold ${currentWeekTotal >= adminSettings.minWeeklyHours ? 'text-green-500' : 'text-gray-900'}`}>
+                                             {currentWeekTotal.toFixed(2)}<span className="text-base text-gray-400 font-normal">h</span>
+                                         </span>
+                                     </div>
+                                     <div className="text-right">
+                                         <p className="text-xs text-gray-400 font-bold uppercase">Target</p>
+                                         <p className="text-sm font-medium text-gray-600">{adminSettings.minWeeklyHours}h / week</p>
+                                     </div>
                                 </div>
-                                <p className="text-xs text-gray-500 text-right">Target: {adminSettings.minWeeklyHours}h / week</p>
                             </div>
                             
                             <button 
                                 onClick={() => handleSubmitWeek(currentWeekStart)}
                                 disabled={!!currentWeekSubmission}
-                                className={`mt-6 w-full py-3 rounded-xl font-bold flex items-center justify-center transition-all ${currentWeekSubmission ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-brand-primary hover:bg-brand-secondary text-white shadow-lg'}`}
+                                className={`mt-8 w-full py-4 rounded-xl font-bold flex items-center justify-center transition-all shadow-lg ${currentWeekSubmission ? 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none' : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200 transform active:scale-95'}`}
                             >
-                                <CheckIcon className="mr-2 h-4 w-4" />
+                                <CheckIcon className="mr-2 h-5 w-5" />
                                 {currentWeekSubmission ? 'Week Submitted' : 'Submit Timesheet'}
                             </button>
                         </div>
@@ -994,15 +1038,15 @@ export const TimeTrackingPage: React.FC = () => {
                 <div className="animate-fadeIn space-y-6">
                      {/* User View: Weekly Submission */}
                      {currentUser?.role === 'user' && (
-                        <div className="glass-panel p-6 rounded-xl border border-white/10">
-                            <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-xl font-bold text-white">Weekly Timesheet</h2>
-                                <div className="flex items-center gap-4 bg-base-300/50 p-1 rounded-lg border border-white/5">
-                                    <button onClick={() => changeWeek(-1)} className="p-2 hover:text-white text-gray-400"><ChevronLeftIcon /></button>
-                                    <span className="font-mono text-sm font-bold text-brand-primary">
+                        <div className="bg-white p-6 md:p-8 rounded-3xl border border-gray-200 shadow-sm">
+                            <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+                                <h2 className="text-xl font-bold text-gray-900">Weekly Timesheet</h2>
+                                <div className="flex items-center gap-4 bg-gray-50 p-1.5 rounded-xl border border-gray-100 shadow-inner">
+                                    <button onClick={() => changeWeek(-1)} className="p-2 hover:bg-white hover:shadow-sm rounded-lg text-gray-500 transition-all"><ChevronLeftIcon /></button>
+                                    <span className="font-mono text-sm font-bold text-indigo-600 px-2">
                                         {formatDateISO(viewWeekStart)}
                                     </span>
-                                    <button onClick={() => changeWeek(1)} className="p-2 hover:text-white text-gray-400"><ChevronRightIcon /></button>
+                                    <button onClick={() => changeWeek(1)} className="p-2 hover:bg-white hover:shadow-sm rounded-lg text-gray-500 transition-all"><ChevronRightIcon /></button>
                                 </div>
                             </div>
 
@@ -1017,50 +1061,54 @@ export const TimeTrackingPage: React.FC = () => {
                                 const meetsRequirement = totalEffective >= adminSettings.minWeeklyHours;
 
                                 return (
-                                    <div className="space-y-6">
+                                    <div className="space-y-8">
                                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                            <div className="bg-base-300/30 p-4 rounded-lg border border-white/5 text-center">
-                                                <p className="text-gray-400 text-xs uppercase font-bold">Worked</p>
-                                                <p className="text-2xl font-bold text-white">{workedHours.toFixed(2)}</p>
+                                            <div className="bg-indigo-50/50 p-6 rounded-2xl border border-indigo-100 text-center">
+                                                <p className="text-indigo-400 text-xs uppercase font-bold mb-2">Worked</p>
+                                                <p className="text-3xl font-bold text-indigo-900">{workedHours.toFixed(2)}</p>
                                             </div>
-                                             <div className="bg-base-300/30 p-4 rounded-lg border border-white/5 text-center">
-                                                <p className="text-gray-400 text-xs uppercase font-bold">Leave Credit</p>
-                                                <p className="text-2xl font-bold text-brand-light">{leaveCredits}</p>
-                                                <p className="text-[10px] text-gray-500">Approved Paid Leave (8h/day)</p>
+                                             <div className="bg-amber-50/50 p-6 rounded-2xl border border-amber-100 text-center">
+                                                <p className="text-amber-400 text-xs uppercase font-bold mb-2">Leave Credit</p>
+                                                <p className="text-3xl font-bold text-amber-700">{leaveCredits}</p>
+                                                <p className="text-[10px] text-amber-600/60 mt-1">Approved Paid Leave (8h/day)</p>
                                             </div>
-                                            <div className="bg-base-300/30 p-4 rounded-lg border border-white/5 text-center relative overflow-hidden">
-                                                {meetsRequirement && <div className="absolute inset-0 bg-green-500/10"></div>}
-                                                <p className="text-gray-400 text-xs uppercase font-bold relative z-10">Total Effective</p>
-                                                <p className={`text-2xl font-bold relative z-10 ${!meetsRequirement ? 'text-yellow-400' : 'text-green-400'}`}>
+                                            <div className={`p-6 rounded-2xl border text-center relative overflow-hidden ${meetsRequirement ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                                                <p className="text-gray-400 text-xs uppercase font-bold mb-2 relative z-10">Total Effective</p>
+                                                <p className={`text-3xl font-bold relative z-10 ${!meetsRequirement ? 'text-gray-700' : 'text-green-700'}`}>
                                                     {totalEffective.toFixed(2)}
                                                 </p>
-                                                <p className="text-[10px] text-gray-500 relative z-10">Min: {adminSettings.minWeeklyHours}</p>
+                                                <p className="text-[10px] text-gray-400 relative z-10 mt-1">Min: {adminSettings.minWeeklyHours}</p>
                                             </div>
-                                            <div className="bg-base-300/30 p-4 rounded-lg border border-white/5 text-center flex flex-col items-center justify-center">
-                                                <p className="text-gray-400 text-xs uppercase font-bold mb-1">Status</p>
+                                            <div className="bg-white p-6 rounded-2xl border border-gray-100 text-center flex flex-col items-center justify-center shadow-sm">
+                                                <p className="text-gray-400 text-xs uppercase font-bold mb-2">Status</p>
                                                 {getStatusBadge(submission?.status || 'draft')}
                                             </div>
                                         </div>
 
                                         {/* List Entries */}
-                                        <div className="border-t border-white/10 pt-4">
-                                             <h3 className="text-sm font-bold text-gray-400 mb-3">Logged Items</h3>
-                                             <ul className="space-y-2">
-                                                 {currentWeekEntries.map(e => (
-                                                     <li key={e.id} className="flex justify-between text-sm p-2 hover:bg-white/5 rounded">
-                                                         <span className="text-gray-300">{e.taskName} ({new Date(e.startTime).toLocaleDateString()})</span>
-                                                         <span className="text-white font-mono">{formatDuration(e.endTime ? new Date(e.endTime).getTime() - new Date(e.startTime).getTime() : 0)}</span>
-                                                     </li>
-                                                 ))}
-                                                 {currentWeekEntries.length === 0 && <li className="text-gray-500 text-sm italic">No entries this week.</li>}
-                                             </ul>
+                                        <div className="border-t border-gray-100 pt-6">
+                                             <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Logged Items</h3>
+                                             <div className="bg-gray-50 rounded-2xl border border-gray-200 overflow-hidden">
+                                                 <ul className="divide-y divide-gray-200">
+                                                     {currentWeekEntries.map(e => (
+                                                         <li key={e.id} className="flex justify-between text-sm p-4 hover:bg-white transition-colors">
+                                                             <div>
+                                                                 <span className="font-bold text-gray-800 block">{e.taskName}</span>
+                                                                 <span className="text-gray-500 text-xs">{new Date(e.startTime).toLocaleDateString()}</span>
+                                                             </div>
+                                                             <span className="text-gray-700 font-mono font-bold bg-white px-2 py-1 rounded border border-gray-200 h-fit">{formatDuration(e.endTime ? new Date(e.endTime).getTime() - new Date(e.startTime).getTime() : 0)}</span>
+                                                         </li>
+                                                     ))}
+                                                     {currentWeekEntries.length === 0 && <li className="text-gray-400 text-sm italic p-6 text-center">No entries logged for this week.</li>}
+                                                 </ul>
+                                             </div>
                                         </div>
 
-                                        <div className="flex justify-end pt-4 border-t border-white/10">
+                                        <div className="flex justify-end pt-4">
                                             <button 
                                                 onClick={() => handleSubmitWeek(viewWeekStart)}
                                                 disabled={isSubmitted}
-                                                className={`font-bold py-3 px-6 rounded-xl shadow-lg transition-all flex items-center ${isSubmitted ? 'bg-gray-700 cursor-not-allowed text-gray-400' : 'bg-brand-primary hover:bg-brand-secondary text-white'}`}
+                                                className={`font-bold py-3 px-8 rounded-xl shadow-lg transition-all flex items-center transform active:scale-95 ${isSubmitted ? 'bg-gray-100 cursor-not-allowed text-gray-400 shadow-none' : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200'}`}
                                             >
                                                 <CheckIcon className="mr-2 h-5 w-5" />
                                                 {isSubmitted ? 'Already Submitted' : 'Submit Week for Approval'}
@@ -1076,26 +1124,26 @@ export const TimeTrackingPage: React.FC = () => {
                      {currentUser?.role === 'admin' && (
                          <>
                             {/* Pending Approvals Section */}
-                             <div className="glass-panel p-6 rounded-xl border border-white/10 mb-8">
-                                 <h2 className="text-xl font-bold text-white mb-4">Pending Weekly Approvals</h2>
-                                 <div className="space-y-4">
-                                     {weeklySubmissions.filter(s => s.status === 'submitted').length === 0 && <p className="text-gray-500 italic">No pending submissions.</p>}
+                             <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm mb-8">
+                                 <h2 className="text-xl font-bold text-gray-900 mb-6">Pending Weekly Approvals</h2>
+                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                     {weeklySubmissions.filter(s => s.status === 'submitted').length === 0 && <p className="text-gray-400 italic col-span-2 text-center py-8">No pending submissions.</p>}
                                      
                                      {weeklySubmissions.filter(s => s.status === 'submitted').map(sub => {
                                          const user = users.find(u => u.id === sub.userId);
                                          return (
-                                             <div key={sub.id} className="bg-base-300/30 p-4 rounded-lg border border-white/5 flex justify-between items-center">
+                                             <div key={sub.id} className="bg-indigo-50 p-5 rounded-2xl border border-indigo-100 flex flex-col sm:flex-row justify-between items-center gap-4">
                                                  <div>
-                                                     <p className="text-white font-bold text-lg">{user?.username}</p>
-                                                     <p className="text-sm text-brand-primary">Week of {sub.weekStartDate}</p>
-                                                     <p className="text-xs text-gray-400">Total Hours: {sub.totalHours.toFixed(2)}</p>
+                                                     <p className="text-gray-900 font-bold text-lg">{user?.username}</p>
+                                                     <p className="text-sm text-indigo-600 font-medium">Week of {sub.weekStartDate}</p>
+                                                     <p className="text-xs text-gray-500 mt-1">Total Hours: {sub.totalHours.toFixed(2)}</p>
                                                  </div>
-                                                 <div className="flex gap-3">
-                                                     <button onClick={() => handleReviewWeek(sub.id, 'approve')} className="bg-green-900/40 hover:bg-green-900/60 text-green-400 border border-green-500/30 px-4 py-2 rounded-lg font-bold transition-all flex items-center">
-                                                         <CheckIcon className="mr-2 h-4 w-4" /> Approve
+                                                 <div className="flex gap-2 w-full sm:w-auto">
+                                                     <button onClick={() => handleReviewWeek(sub.id, 'approve')} className="flex-1 bg-green-100 hover:bg-green-200 text-green-700 border border-green-200 px-4 py-2 rounded-xl font-bold transition-all flex items-center justify-center text-sm">
+                                                         <CheckIcon className="mr-1 h-4 w-4" /> Approve
                                                      </button>
-                                                     <button onClick={() => handleReviewWeek(sub.id, 'reject')} className="bg-red-900/40 hover:bg-red-900/60 text-red-400 border border-red-500/30 px-4 py-2 rounded-lg font-bold transition-all flex items-center">
-                                                         <CancelIcon className="mr-2 h-4 w-4" /> Reject
+                                                     <button onClick={() => handleReviewWeek(sub.id, 'reject')} className="flex-1 bg-red-100 hover:bg-red-200 text-red-700 border border-red-200 px-4 py-2 rounded-xl font-bold transition-all flex items-center justify-center text-sm">
+                                                         <CancelIcon className="mr-1 h-4 w-4" /> Reject
                                                      </button>
                                                  </div>
                                              </div>
@@ -1105,14 +1153,14 @@ export const TimeTrackingPage: React.FC = () => {
                              </div>
 
                              {/* Manage User Timesheets Section */}
-                             <div className="glass-panel p-6 rounded-xl border border-white/10">
-                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                                    <h2 className="text-xl font-bold text-white">Manage User Timesheets</h2>
-                                    <div className="flex flex-wrap items-center gap-4">
+                             <div className="bg-white p-6 md:p-8 rounded-3xl border border-gray-200 shadow-sm">
+                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                                    <h2 className="text-xl font-bold text-gray-900">Manage User Timesheets</h2>
+                                    <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
                                         <select 
                                             value={adminSelectedUserId} 
                                             onChange={e => setAdminSelectedUserId(e.target.value)}
-                                            className="bg-base-300 border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-brand-primary"
+                                            className="w-full sm:w-auto bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"
                                         >
                                             <option value="" disabled>Select User</option>
                                             {users.filter(u => u.role !== 'admin').map(u => (
@@ -1120,12 +1168,12 @@ export const TimeTrackingPage: React.FC = () => {
                                             ))}
                                         </select>
 
-                                        <div className="flex items-center gap-2 bg-base-300/50 p-1 rounded-lg border border-white/5">
-                                            <button onClick={() => changeWeek(-1)} className="p-2 hover:text-white text-gray-400"><ChevronLeftIcon /></button>
-                                            <span className="font-mono text-sm font-bold text-brand-primary px-2">
+                                        <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-xl border border-gray-100 w-full sm:w-auto justify-between sm:justify-start">
+                                            <button onClick={() => changeWeek(-1)} className="p-2 hover:bg-white hover:shadow-sm rounded-lg text-gray-500 transition-all"><ChevronLeftIcon /></button>
+                                            <span className="font-mono text-sm font-bold text-indigo-600 px-2">
                                                 {formatDateISO(viewWeekStart)}
                                             </span>
-                                            <button onClick={() => changeWeek(1)} className="p-2 hover:text-white text-gray-400"><ChevronRightIcon /></button>
+                                            <button onClick={() => changeWeek(1)} className="p-2 hover:bg-white hover:shadow-sm rounded-lg text-gray-500 transition-all"><ChevronRightIcon /></button>
                                         </div>
                                     </div>
                                 </div>
@@ -1138,64 +1186,64 @@ export const TimeTrackingPage: React.FC = () => {
                                     const submission = getWeekSubmission(adminSelectedUserId, viewWeekStart);
 
                                     return (
-                                        <div className="space-y-6">
+                                        <div className="space-y-8">
                                             {/* Weekly Stats Summary */}
-                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                                                <div className="bg-base-300/20 p-3 rounded border border-white/5 flex justify-between">
-                                                    <span className="text-gray-400 text-sm">Worked:</span>
-                                                    <span className="text-white font-bold">{workedHours.toFixed(2)}h</span>
+                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex justify-between items-center">
+                                                    <span className="text-gray-500 text-xs font-bold uppercase">Worked</span>
+                                                    <span className="text-gray-900 font-bold text-xl">{workedHours.toFixed(2)}h</span>
                                                 </div>
-                                                <div className="bg-base-300/20 p-3 rounded border border-white/5 flex justify-between">
-                                                    <span className="text-gray-400 text-sm">Leave:</span>
-                                                    <span className="text-white font-bold">{leaveCredits}h</span>
+                                                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex justify-between items-center">
+                                                    <span className="text-gray-500 text-xs font-bold uppercase">Leave</span>
+                                                    <span className="text-gray-900 font-bold text-xl">{leaveCredits}h</span>
                                                 </div>
-                                                <div className="bg-base-300/20 p-3 rounded border border-white/5 flex justify-between">
-                                                    <span className="text-gray-400 text-sm">Status:</span>
+                                                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex justify-between items-center">
+                                                    <span className="text-gray-500 text-xs font-bold uppercase">Status</span>
                                                     <span>{getStatusBadge(submission?.status || 'draft')}</span>
                                                 </div>
                                             </div>
 
                                             <div className="flex justify-between items-center">
-                                                 <h3 className="text-sm font-bold text-gray-400">Logged Entries</h3>
+                                                 <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider">Logged Entries</h3>
                                                  <button 
                                                     onClick={() => openEntryModal(undefined, adminSelectedUserId)}
-                                                    className="text-xs bg-brand-primary hover:bg-brand-secondary text-white px-3 py-1.5 rounded-lg flex items-center"
+                                                    className="text-xs font-bold bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-4 py-2 rounded-xl flex items-center transition-colors"
                                                  >
                                                      <PlusIcon className="h-3 w-3 mr-1" /> Add Manual Entry
                                                  </button>
                                             </div>
 
-                                            <div className="overflow-x-auto">
+                                            <div className="overflow-x-auto rounded-xl border border-gray-200">
                                                 <table className="w-full text-left text-sm">
-                                                    <thead>
-                                                        <tr className="text-gray-500 border-b border-white/10">
-                                                            <th className="pb-2 font-normal">Date</th>
-                                                            <th className="pb-2 font-normal">Task / Project</th>
-                                                            <th className="pb-2 font-normal">Time</th>
-                                                            <th className="pb-2 font-normal">Duration</th>
-                                                            <th className="pb-2 font-normal text-right">Actions</th>
+                                                    <thead className="bg-gray-50">
+                                                        <tr className="text-gray-500 border-b border-gray-200">
+                                                            <th className="p-4 font-medium text-xs uppercase tracking-wider">Date</th>
+                                                            <th className="p-4 font-medium text-xs uppercase tracking-wider">Task / Project</th>
+                                                            <th className="p-4 font-medium text-xs uppercase tracking-wider">Time</th>
+                                                            <th className="p-4 font-medium text-xs uppercase tracking-wider">Duration</th>
+                                                            <th className="p-4 font-medium text-xs uppercase tracking-wider text-right">Actions</th>
                                                         </tr>
                                                     </thead>
-                                                    <tbody className="divide-y divide-white/5">
+                                                    <tbody className="divide-y divide-gray-100 bg-white">
                                                         {userEntries.map(e => {
                                                             const duration = e.endTime ? new Date(e.endTime).getTime() - new Date(e.startTime).getTime() : 0;
                                                             const projName = projects.find(p => p.id === e.projectId)?.name || (e.type === 'break' ? 'Break' : 'Unknown');
                                                             return (
-                                                                <tr key={e.id} className="hover:bg-white/5">
-                                                                    <td className="py-3 text-gray-300">{new Date(e.startTime).toLocaleDateString()}</td>
-                                                                    <td className="py-3">
-                                                                        <div className="text-white">{e.taskName}</div>
+                                                                <tr key={e.id} className="hover:bg-gray-50 transition-colors">
+                                                                    <td className="p-4 text-gray-600 whitespace-nowrap">{new Date(e.startTime).toLocaleDateString()}</td>
+                                                                    <td className="p-4">
+                                                                        <div className="text-gray-900 font-medium">{e.taskName}</div>
                                                                         <div className="text-xs text-gray-500">{projName}</div>
                                                                     </td>
-                                                                    <td className="py-3 text-gray-400 text-xs">
+                                                                    <td className="p-4 text-gray-500 text-xs whitespace-nowrap">
                                                                         {new Date(e.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - 
                                                                         {e.endTime ? new Date(e.endTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Active'}
                                                                     </td>
-                                                                    <td className="py-3 font-mono text-gray-300">{formatDuration(duration)}</td>
-                                                                    <td className="py-3 text-right">
+                                                                    <td className="p-4 font-mono text-gray-700 font-bold">{formatDuration(duration)}</td>
+                                                                    <td className="p-4 text-right">
                                                                         <div className="flex justify-end gap-2">
-                                                                            <button onClick={() => openEntryModal(e, adminSelectedUserId)} className="p-1.5 text-gray-400 hover:text-white bg-base-300 hover:bg-base-200 rounded"><EditIcon className="h-3 w-3"/></button>
-                                                                            <button onClick={() => deleteTimeEntry(e.id)} className="p-1.5 text-red-400 hover:text-white bg-red-900/20 hover:bg-red-600 rounded"><TrashIcon className="h-3 w-3"/></button>
+                                                                            <button onClick={() => openEntryModal(e, adminSelectedUserId)} className="p-2 text-gray-400 hover:text-indigo-600 bg-gray-100 hover:bg-indigo-50 rounded-lg transition-colors"><EditIcon className="h-4 w-4"/></button>
+                                                                            <button onClick={() => deleteTimeEntry(e.id)} className="p-2 text-gray-400 hover:text-red-600 bg-gray-100 hover:bg-red-50 rounded-lg transition-colors"><TrashIcon className="h-4 w-4"/></button>
                                                                         </div>
                                                                     </td>
                                                                 </tr>
@@ -1203,7 +1251,7 @@ export const TimeTrackingPage: React.FC = () => {
                                                         })}
                                                         {userEntries.length === 0 && (
                                                             <tr>
-                                                                <td colSpan={5} className="py-4 text-center text-gray-500 italic">No entries recorded for this week.</td>
+                                                                <td colSpan={5} className="p-8 text-center text-gray-400 italic bg-gray-50">No entries recorded for this week.</td>
                                                             </tr>
                                                         )}
                                                     </tbody>
@@ -1212,7 +1260,9 @@ export const TimeTrackingPage: React.FC = () => {
                                         </div>
                                     );
                                 })() : (
-                                    <p className="text-gray-500 text-center py-8 italic">Select a user to view and edit their timesheet.</p>
+                                    <div className="bg-gray-50 rounded-2xl p-10 text-center border border-dashed border-gray-200">
+                                        <p className="text-gray-500 italic">Select a user above to view and edit their timesheet.</p>
+                                    </div>
                                 )}
                              </div>
                          </>
@@ -1225,30 +1275,30 @@ export const TimeTrackingPage: React.FC = () => {
                 <div className="animate-fadeIn space-y-6">
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                          {/* Salary Config */}
-                         <div className="lg:col-span-1 glass-panel p-6 rounded-xl border border-white/10">
-                             <h3 className="text-lg font-bold text-white mb-4 flex items-center"><SettingsIcon className="mr-2 h-5 w-5 text-brand-secondary"/> Salary Configuration</h3>
-                             <div className="space-y-4">
+                         <div className="lg:col-span-1 bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
+                             <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center"><SettingsIcon className="mr-2 h-5 w-5 text-indigo-600"/> Salary Configuration</h3>
+                             <div className="space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar pr-2">
                                  {users.filter(u => u.role !== 'admin').map(user => {
                                      const config = userSalaries.find(s => s.userId === user.id) || { userId: user.id, baseSalary: 0, currency: '$' };
                                      return (
-                                         <div key={user.id} className="bg-base-300/30 p-4 rounded-lg border border-white/5">
-                                             <p className="text-white font-bold mb-2">{user.username}</p>
-                                             <div className="flex gap-2">
+                                         <div key={user.id} className="bg-gray-50 p-4 rounded-2xl border border-gray-100 hover:border-indigo-100 transition-colors">
+                                             <p className="text-gray-800 font-bold mb-3">{user.username}</p>
+                                             <div className="flex gap-2 items-center">
                                                  <input 
                                                     type="number" 
                                                     value={config.baseSalary} 
                                                     onChange={e => handleUpdateSalaryConfig(user.id, 'baseSalary', parseFloat(e.target.value))}
-                                                    className="w-24 bg-base-300 border border-gray-600 rounded px-2 py-1 text-white text-sm"
+                                                    className="flex-grow bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                                                     placeholder="Salary"
                                                  />
                                                  <select 
                                                     value={config.currency}
                                                     onChange={e => handleUpdateSalaryConfig(user.id, 'currency', e.target.value)}
-                                                    className="w-20 bg-base-300 border border-gray-600 rounded px-2 py-1 text-white text-sm"
+                                                    className="w-24 bg-white border border-gray-200 rounded-lg px-2 py-2 text-gray-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                                                  >
                                                      {CURRENCIES.map(c => <option key={c.symbol} value={c.symbol}>{c.symbol}</option>)}
                                                  </select>
-                                                 <span className="text-gray-500 text-sm flex items-center">/ month</span>
+                                                 <span className="text-gray-400 text-xs whitespace-nowrap">/ mo</span>
                                              </div>
                                          </div>
                                      );
@@ -1257,76 +1307,79 @@ export const TimeTrackingPage: React.FC = () => {
                          </div>
 
                          {/* Payroll Report */}
-                         <div className="lg:col-span-2 glass-panel p-6 rounded-xl border border-white/10">
-                             <div className="flex justify-between items-center mb-6">
-                                 <h3 className="text-lg font-bold text-white">Payroll Report</h3>
-                                 <div className="flex items-center gap-2">
+                         <div className="lg:col-span-2 bg-white p-6 md:p-8 rounded-3xl border border-gray-200 shadow-sm">
+                             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                                 <h3 className="text-lg font-bold text-gray-900">Payroll Report</h3>
+                                 <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-xl border border-gray-100">
                                     <div className="flex flex-col">
-                                        <label className="text-[10px] text-gray-500 uppercase font-bold">Start</label>
+                                        <label className="text-[10px] text-gray-400 uppercase font-bold px-1">Start</label>
                                         <input 
                                             type="date" 
                                             value={payrollStart}
                                             onChange={e => setPayrollStart(e.target.value)}
-                                            className="bg-base-300/50 border border-gray-600 rounded-lg px-3 py-1 text-white text-sm"
+                                            className="bg-white border border-gray-200 rounded-lg px-2 py-1 text-gray-900 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
                                         />
                                     </div>
-                                    <span className="text-gray-400 mt-4">-</span>
+                                    <span className="text-gray-300 mt-4">-</span>
                                     <div className="flex flex-col">
-                                        <label className="text-[10px] text-gray-500 uppercase font-bold">End</label>
+                                        <label className="text-[10px] text-gray-400 uppercase font-bold px-1">End</label>
                                         <input 
                                             type="date" 
                                             value={payrollEnd}
                                             onChange={e => setPayrollEnd(e.target.value)}
-                                            className="bg-base-300/50 border border-gray-600 rounded-lg px-3 py-1 text-white text-sm"
+                                            className="bg-white border border-gray-200 rounded-lg px-2 py-1 text-gray-900 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
                                         />
                                     </div>
                                  </div>
                              </div>
                              
-                             <div className="overflow-x-auto">
+                             <div className="overflow-x-auto rounded-xl border border-gray-200">
                                  <table className="w-full text-left">
-                                     <thead>
-                                         <tr className="text-gray-400 text-xs uppercase font-bold border-b border-gray-700">
-                                             <th className="p-3">User</th>
-                                             <th className="p-3">Base Salary</th>
-                                             <th className="p-3 text-center">Missed Days</th>
-                                             <th className="p-3 text-center">LOP Days</th>
-                                             <th className="p-3">Deduction</th>
-                                             <th className="p-3 text-right">Net Salary</th>
+                                     <thead className="bg-gray-50">
+                                         <tr className="text-gray-500 text-xs uppercase font-bold border-b border-gray-200">
+                                             <th className="p-4">User</th>
+                                             <th className="p-4">Base Salary</th>
+                                             <th className="p-4 text-center">Missed Days</th>
+                                             <th className="p-4 text-center">LOP Days</th>
+                                             <th className="p-4">Deduction</th>
+                                             <th className="p-4 text-right">Net Salary</th>
                                          </tr>
                                      </thead>
-                                     <tbody className="text-sm">
+                                     <tbody className="text-sm bg-white divide-y divide-gray-100">
                                          {users.filter(u => u.role !== 'admin').map(user => {
                                              const payroll = calculatePayroll(user.id);
                                              if (!payroll) return (
                                                  <tr key={user.id}>
-                                                     <td colSpan={6} className="p-3 text-gray-500 text-center">Invalid date range or config missing</td>
+                                                     <td colSpan={6} className="p-4 text-gray-400 text-center italic">Invalid date range or config missing</td>
                                                  </tr>
                                              );
                                              return (
-                                                 <tr key={user.id} className="border-b border-white/5 hover:bg-white/5">
-                                                     <td className="p-3 text-white font-medium">
+                                                 <tr key={user.id} className="hover:bg-gray-50 transition-colors">
+                                                     <td className="p-4 text-gray-900 font-medium">
                                                          {user.username}
-                                                         <span className="block text-[10px] text-gray-500 font-normal">Days: {payroll.totalDays}</span>
+                                                         <span className="block text-[10px] text-gray-400 font-normal">Period: {payroll.totalDays} days</span>
                                                      </td>
-                                                     <td className="p-3 text-gray-300">{payroll.currency}{payroll.base.toLocaleString()}</td>
-                                                     <td className="p-3 text-center">
-                                                         {payroll.missedDays > 0 ? <span className="text-yellow-400 font-bold">{payroll.missedDays}</span> : <span className="text-gray-600">-</span>}
+                                                     <td className="p-4 text-gray-600">{payroll.currency}{payroll.base.toLocaleString()}</td>
+                                                     <td className="p-4 text-center">
+                                                         {payroll.missedDays > 0 ? <span className="text-amber-500 font-bold bg-amber-50 px-2 py-1 rounded-md">{payroll.missedDays}</span> : <span className="text-gray-300">-</span>}
                                                      </td>
-                                                     <td className="p-3 text-center">
-                                                         {payroll.lopDays > 0 ? <span className="text-red-400 font-bold">{payroll.lopDays}</span> : <span className="text-gray-600">-</span>}
+                                                     <td className="p-4 text-center">
+                                                         {payroll.lopDays > 0 ? <span className="text-red-500 font-bold bg-red-50 px-2 py-1 rounded-md">{payroll.lopDays}</span> : <span className="text-gray-300">-</span>}
                                                      </td>
-                                                     <td className="p-3 text-red-400">
+                                                     <td className="p-4 text-red-500">
                                                          {payroll.deduction > 0 ? `-${payroll.currency}${payroll.deduction.toFixed(2)}` : '-'}
                                                      </td>
-                                                     <td className="p-3 text-right font-bold text-green-400">{payroll.currency}{payroll.netSalary.toFixed(2)}</td>
+                                                     <td className="p-4 text-right font-bold text-green-600 text-base">{payroll.currency}{payroll.netSalary.toFixed(2)}</td>
                                                  </tr>
                                              );
                                          })}
                                      </tbody>
                                  </table>
                              </div>
-                             <p className="text-xs text-gray-500 mt-4 italic">* Missed Days: Weekdays with no logged time and no approved leave. LOP: Approved 'Unpaid' leave.</p>
+                             <p className="text-xs text-gray-400 mt-4 bg-blue-50 p-3 rounded-lg border border-blue-100 flex items-start gap-2">
+                                 <span className="text-blue-500 font-bold">ℹ️</span> 
+                                 Missed Days are weekdays with no logged time and no approved leave. LOP are Approved 'Unpaid' leave days.
+                             </p>
                          </div>
                     </div>
                 </div>
@@ -1338,57 +1391,57 @@ export const TimeTrackingPage: React.FC = () => {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                          {/* Request Form */}
                          {currentUser?.role === 'user' && (
-                             <div className="lg:col-span-1 glass-panel p-6 rounded-xl border border-white/10">
-                                 <h3 className="text-lg font-bold text-white mb-4">Request Time Off</h3>
-                                 <form onSubmit={handleBookLeave} className="space-y-4">
+                             <div className="lg:col-span-1 bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
+                                 <h3 className="text-lg font-bold text-gray-900 mb-6">Request Time Off</h3>
+                                 <form onSubmit={handleBookLeave} className="space-y-5">
                                      <div>
-                                         <label className="text-xs font-bold text-gray-400 uppercase block mb-1">Type</label>
+                                         <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Type</label>
                                          <select 
                                             value={leaveForm.type}
                                             onChange={e => setLeaveForm({...leaveForm, type: e.target.value as LeaveType})}
-                                            className="w-full bg-base-300/50 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"
                                          >
                                              {Object.keys(adminSettings.leaveBalances).map(type => (
                                                  <option key={type} value={type}>{type} (Bal: {calculateBalance(currentUser.id, type as LeaveType)})</option>
                                              ))}
                                          </select>
                                      </div>
-                                     <div className="grid grid-cols-2 gap-3">
+                                     <div className="grid grid-cols-2 gap-4">
                                          <div>
-                                             <label className="text-xs font-bold text-gray-400 uppercase block mb-1">Start</label>
-                                             <input type="date" value={leaveForm.startDate} onChange={e => setLeaveForm({...leaveForm, startDate: e.target.value})} className="w-full bg-base-300/50 border border-gray-600 rounded-lg px-3 py-2 text-white" required />
+                                             <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Start</label>
+                                             <input type="date" value={leaveForm.startDate} onChange={e => setLeaveForm({...leaveForm, startDate: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none" required />
                                          </div>
                                          <div>
-                                             <label className="text-xs font-bold text-gray-400 uppercase block mb-1">End</label>
-                                             <input type="date" value={leaveForm.endDate} onChange={e => setLeaveForm({...leaveForm, endDate: e.target.value})} className="w-full bg-base-300/50 border border-gray-600 rounded-lg px-3 py-2 text-white" required />
+                                             <label className="text-xs font-bold text-gray-500 uppercase block mb-1">End</label>
+                                             <input type="date" value={leaveForm.endDate} onChange={e => setLeaveForm({...leaveForm, endDate: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none" required />
                                          </div>
                                      </div>
                                      <div>
-                                         <label className="text-xs font-bold text-gray-400 uppercase block mb-1">Reason</label>
-                                         <textarea value={leaveForm.reason} onChange={e => setLeaveForm({...leaveForm, reason: e.target.value})} className="w-full bg-base-300/50 border border-gray-600 rounded-lg px-3 py-2 text-white" rows={3}></textarea>
+                                         <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Reason</label>
+                                         <textarea value={leaveForm.reason} onChange={e => setLeaveForm({...leaveForm, reason: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none" rows={3} placeholder="Why are you requesting off?"></textarea>
                                      </div>
-                                     <button type="submit" className="w-full bg-brand-primary hover:bg-brand-secondary text-white font-bold py-2 rounded-lg">Submit Request</button>
+                                     <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-95">Submit Request</button>
                                  </form>
                              </div>
                          )}
 
                          {/* Leave History / Approvals */}
-                         <div className={`${currentUser?.role === 'user' ? 'lg:col-span-2' : 'lg:col-span-3'} glass-panel p-6 rounded-xl border border-white/10`}>
-                             <h3 className="text-lg font-bold text-white mb-4">{currentUser?.role === 'admin' ? 'Pending Requests' : 'My Requests'}</h3>
-                             <div className="space-y-3">
-                                 {leaveRequests.length === 0 && <p className="text-gray-500 italic">No leave records found.</p>}
+                         <div className={`${currentUser?.role === 'user' ? 'lg:col-span-2' : 'lg:col-span-3'} bg-white p-6 rounded-3xl border border-gray-200 shadow-sm`}>
+                             <h3 className="text-lg font-bold text-gray-900 mb-6">{currentUser?.role === 'admin' ? 'Pending Requests' : 'My Requests'}</h3>
+                             <div className="space-y-4">
+                                 {leaveRequests.length === 0 && <div className="text-center py-12 bg-gray-50 rounded-2xl border border-dashed border-gray-200 text-gray-400 italic">No leave records found.</div>}
                                  
                                  {leaveRequests.map(req => (
-                                     <div key={req.id} className="bg-base-300/30 p-4 rounded-lg border border-white/5 flex justify-between items-center">
+                                     <div key={req.id} className="bg-gray-50 p-5 rounded-2xl border border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition-all hover:shadow-md">
                                          <div>
-                                             <p className="text-white font-bold">{currentUser?.role === 'admin' ? users.find(u => u.id === req.userId)?.username : req.type} <span className="text-xs font-normal text-gray-400">({req.startDate} to {req.endDate})</span></p>
-                                             <p className="text-sm text-gray-300">{req.reason}</p>
+                                             <p className="text-gray-900 font-bold text-lg">{currentUser?.role === 'admin' ? users.find(u => u.id === req.userId)?.username : req.type} <span className="text-sm font-normal text-gray-500 bg-white px-2 py-0.5 rounded border border-gray-200 ml-2">{req.startDate} to {req.endDate}</span></p>
+                                             <p className="text-sm text-gray-600 mt-1 italic">"{req.reason}"</p>
                                          </div>
-                                         <div className="flex items-center gap-3">
+                                         <div className="flex items-center gap-3 w-full sm:w-auto">
                                              {currentUser?.role === 'admin' && req.status === 'pending' ? (
                                                  <>
-                                                     <button onClick={() => handleLeaveAction(req.id, 'approve')} className="text-green-400 hover:text-green-300 text-sm font-bold">Approve</button>
-                                                     <button onClick={() => handleLeaveAction(req.id, 'reject')} className="text-red-400 hover:text-red-300 text-sm font-bold">Reject</button>
+                                                     <button onClick={() => handleLeaveAction(req.id, 'approve')} className="flex-1 sm:flex-none bg-green-100 hover:bg-green-200 text-green-700 px-4 py-2 rounded-xl text-sm font-bold transition-colors">Approve</button>
+                                                     <button onClick={() => handleLeaveAction(req.id, 'reject')} className="flex-1 sm:flex-none bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded-xl text-sm font-bold transition-colors">Reject</button>
                                                  </>
                                              ) : (
                                                  getStatusBadge(req.status)
@@ -1404,25 +1457,26 @@ export const TimeTrackingPage: React.FC = () => {
 
             {/* --- ADMIN SETTINGS TAB --- */}
             {activeTab === 'admin' && currentUser?.role === 'admin' && (
-                <div className="animate-fadeIn glass-panel p-6 rounded-xl border border-white/10 max-w-2xl mx-auto">
-                    <h3 className="text-xl font-bold text-white mb-6">General Settings</h3>
-                    <div className="space-y-6">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-1">Minimum Weekly Hours</label>
+                <div className="animate-fadeIn bg-white p-8 rounded-3xl border border-gray-200 shadow-sm max-w-3xl mx-auto">
+                    <h3 className="text-2xl font-bold text-gray-900 mb-8 flex items-center"><SettingsIcon className="mr-3 h-6 w-6 text-indigo-600"/> Admin Configuration</h3>
+                    <div className="space-y-8">
+                        <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                            <label className="block text-sm font-bold text-gray-700 mb-2">Minimum Weekly Hours</label>
+                            <p className="text-xs text-gray-500 mb-3">Users cannot submit timesheets below this threshold.</p>
                             <input 
                                 type="number" 
                                 value={adminSettings.minWeeklyHours}
                                 onChange={e => saveSettings({...adminSettings, minWeeklyHours: parseInt(e.target.value)})}
-                                className="w-full bg-base-300 border border-gray-600 rounded px-3 py-2 text-white"
+                                className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"
                             />
                         </div>
                         
-                        <div className="border-t border-white/10 pt-4">
-                            <h4 className="text-lg font-bold text-white mb-3">Leave Balances (Days/Year)</h4>
-                            <div className="grid grid-cols-2 gap-4">
+                        <div className="pt-2">
+                            <h4 className="text-lg font-bold text-gray-900 mb-4">Leave Balances (Days/Year)</h4>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                                 {Object.entries(adminSettings.leaveBalances).map(([type, days]) => (
-                                    <div key={type}>
-                                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">{type}</label>
+                                    <div key={type} className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">{type}</label>
                                         <input 
                                             type="number" 
                                             value={days}
@@ -1430,7 +1484,7 @@ export const TimeTrackingPage: React.FC = () => {
                                                 const newBalances = { ...adminSettings.leaveBalances, [type]: parseInt(e.target.value) };
                                                 saveSettings({ ...adminSettings, leaveBalances: newBalances });
                                             }}
-                                            className="w-full bg-base-300 border border-gray-600 rounded px-3 py-2 text-white"
+                                            className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none disabled:bg-gray-100 disabled:text-gray-400"
                                             disabled={type === 'Unpaid'}
                                         />
                                     </div>
@@ -1439,19 +1493,21 @@ export const TimeTrackingPage: React.FC = () => {
                         </div>
 
                          {/* Project Management */}
-                         <div className="border-t border-white/10 pt-6 mt-6">
-                            <h4 className="text-lg font-bold text-white mb-3">Global Projects</h4>
-                            <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar">
+                         <div className="border-t border-gray-100 pt-8 mt-4">
+                            <h4 className="text-lg font-bold text-gray-900 mb-4">Global Projects</h4>
+                            <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar bg-gray-50 p-4 rounded-2xl border border-gray-100">
                                 {projects.filter(p => p.scope === 'global').map(p => (
-                                    <div key={p.id} className="flex justify-between items-center bg-base-300/50 p-3 rounded border border-white/5">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: p.color }}></div>
-                                            <span className="text-white">{p.name}</span>
+                                    <div key={p.id} className="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-4 h-4 rounded-full shadow-sm" style={{ backgroundColor: p.color }}></div>
+                                            <span className="text-gray-900 font-medium">{p.name}</span>
                                         </div>
-                                        <button onClick={() => handleDeleteProject(p.id)} className="text-red-400 hover:text-red-300 p-1"><TrashIcon /></button>
+                                        <button onClick={() => handleDeleteProject(p.id)} className="text-gray-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition-colors"><TrashIcon className="h-4 w-4" /></button>
                                     </div>
                                 ))}
-                                <button onClick={() => setIsProjectModalOpen(true)} className="w-full py-2 border-2 border-dashed border-gray-600 rounded text-gray-400 hover:text-white hover:border-gray-400 mt-2">
+                                {projects.filter(p => p.scope === 'global').length === 0 && <p className="text-center text-gray-400 text-sm py-2">No global projects defined.</p>}
+                                
+                                <button onClick={() => setIsProjectModalOpen(true)} className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50 mt-4 font-bold transition-all">
                                     + Add Global Project
                                 </button>
                             </div>

@@ -124,7 +124,6 @@ export function MainApp() {
             if (!timestamp) return false;
             
             const dateObj = new Date(timestamp);
-            // 'en-CA' locale format is YYYY-MM-DD, ensuring we compare local dates correctly
             const localDateStr = dateObj.toLocaleDateString('en-CA');
             
             if (filters.date.type === 'today') {
@@ -134,7 +133,6 @@ export function MainApp() {
             if (filters.date.type === 'week') {
                 const weekAgo = new Date();
                 weekAgo.setDate(weekAgo.getDate() - 7);
-                // For week/month, full object comparison is safer for "last X days" logic
                 return dateObj >= weekAgo;
             }
             if (filters.date.type === 'month') {
@@ -143,7 +141,6 @@ export function MainApp() {
                 return dateObj >= monthAgo;
             }
             if (filters.date.type === 'custom' && filters.date.startDate && filters.date.endDate) {
-                // Compare date strings to be timezone-agnostic for user selected range
                 return localDateStr >= filters.date.startDate && localDateStr <= filters.date.endDate;
             }
             return true;
@@ -402,35 +399,35 @@ export function MainApp() {
 
   const renderLoadingState = () => (
     <div className="text-center py-20 glass-panel rounded-xl mx-auto max-w-md">
-        <svg className="animate-spin mx-auto h-12 w-12 text-brand-primary mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <svg className="animate-spin mx-auto h-12 w-12 text-indigo-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
-        <p className="text-white text-xl font-medium">Scouring the web for prospects...</p>
-        <p className="text-gray-400 text-sm mt-2">This AI-powered search is finding real-time data.</p>
+        <p className="text-gray-900 text-xl font-medium">Scouring the web for prospects...</p>
+        <p className="text-gray-500 text-sm mt-2">This AI-powered search is finding real-time data.</p>
     </div>
   );
 
   const renderGroundingChunks = () => {
     if (!groundingChunks || groundingChunks.length === 0) return null;
     return (
-      <div className="mt-8 p-6 glass-panel rounded-xl border-t border-brand-primary/20">
-        <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-            <svg className="w-5 h-5 text-brand-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+      <div className="mt-8 p-6 bg-white rounded-xl border border-gray-200 shadow-sm">
+        <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <svg className="w-5 h-5 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             Source Intelligence
         </h4>
         <ul className="space-y-3">
           {groundingChunks.map((chunk, index) => {
             if (chunk.web) {
-              return <li key={index} className="text-sm text-gray-400 flex items-start gap-2"><span className="mt-1 text-brand-primary">•</span><a href={chunk.web.uri} target="_blank" rel="noopener noreferrer" className="text-brand-light hover:underline hover:text-white transition-colors">{chunk.web.title || chunk.web.uri}</a></li>;
+              return <li key={index} className="text-sm text-gray-600 flex items-start gap-2"><span className="mt-1 text-indigo-500">•</span><a href={chunk.web.uri} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline hover:text-indigo-800 transition-colors">{chunk.web.title || chunk.web.uri}</a></li>;
             }
             if (chunk.maps) {
               return (
-                <li key={index} className="text-sm text-gray-400">
-                  <a href={chunk.maps.uri} target="_blank" rel="noopener noreferrer" className="text-brand-light hover:underline hover:text-white transition-colors font-medium block mb-1">{chunk.maps.title || chunk.maps.uri}</a>
+                <li key={index} className="text-sm text-gray-600">
+                  <a href={chunk.maps.uri} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline hover:text-indigo-800 transition-colors font-medium block mb-1">{chunk.maps.title || chunk.maps.uri}</a>
                   {chunk.maps.placeAnswerSources?.map((source, idx) => 
                     source.reviewSnippets?.map((snippet, sIndex) => (
-                      <div key={`${idx}-${sIndex}`} className="pl-4 mt-2 border-l-2 border-brand-primary/30 py-1">
+                      <div key={`${idx}-${sIndex}`} className="pl-4 mt-2 border-l-2 border-indigo-200 py-1">
                         <blockquote className="italic text-gray-500 text-xs">"{snippet.snippet}"</blockquote>
                       </div>
                     ))
@@ -447,52 +444,51 @@ export function MainApp() {
 
   return (
     <React.Fragment>
-      <header className="sticky top-0 z-50 glass-header shadow-lg border-b border-white/5">
+      <header className="sticky top-0 z-50 glass-header shadow-sm">
         <div className="container mx-auto px-4 py-3 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg shadow-brand-primary/20">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg shadow-indigo-200">
                    <span className="text-white font-bold text-lg">R</span>
                 </div>
                 <div>
-                    <h1 className="text-xl font-bold text-white tracking-tight leading-tight">Rit Outreach</h1>
-                    <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Click Zia</p>
+                    <h1 className="text-xl font-bold text-gray-900 tracking-tight leading-tight">Rit Outreach</h1>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Click Zia</p>
                 </div>
              </div>
-             {/* Mobile Settings/Logout Toggle could go here */}
           </div>
 
-          {/* Main Navigation - Now in Header */}
-          <nav className="flex bg-base-300/50 p-1 rounded-lg border border-white/5 backdrop-blur-sm w-full md:w-auto overflow-x-auto">
+          {/* Main Navigation - Now Clean & Light */}
+          <nav className="flex bg-gray-100/50 p-1 rounded-xl border border-gray-200 backdrop-blur-sm w-full md:w-auto overflow-x-auto no-scrollbar">
             <button 
                 onClick={() => setView('search')}
-                className={`flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-semibold transition-all whitespace-nowrap ${view === 'search' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${view === 'search' ? 'bg-white text-indigo-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50'}`}
             >
                 Search Results
             </button>
             <button 
                 onClick={() => setView(view === 'crm-detail' ? 'crm-detail' : 'crm-list')}
-                className={`flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-semibold transition-all relative whitespace-nowrap ${view.startsWith('crm') ? 'bg-brand-primary text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all relative whitespace-nowrap ${view.startsWith('crm') ? 'bg-white text-indigo-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50'}`}
             >
                 My CRM
-                {crmContacts.length > 0 && <span className="absolute top-1.5 right-1.5 flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-accent opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-brand-accent"></span></span>}
+                {crmContacts.length > 0 && <span className="absolute top-1.5 right-1.5 flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-pink-500"></span></span>}
             </button>
             <button 
                 onClick={() => setView('email-campaign')}
-                className={`flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-2 ${view === 'email-campaign' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-2 ${view === 'email-campaign' ? 'bg-white text-indigo-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50'}`}
             >
                 <InboxIcon className="h-4 w-4" /> Email
             </button>
             <button 
                 onClick={() => setView('time-tracking')}
-                className={`flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-2 ${view === 'time-tracking' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-2 ${view === 'time-tracking' ? 'bg-white text-indigo-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50'}`}
             >
                 <ClockIcon className="h-4 w-4" /> Time
             </button>
             {currentUser?.role === 'admin' && (
                 <button 
                     onClick={() => setView('users')}
-                    className={`flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-semibold transition-all whitespace-nowrap ${view === 'users' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                    className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${view === 'users' ? 'bg-white text-indigo-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50'}`}
                 >
                     Users
                 </button>
@@ -501,15 +497,15 @@ export function MainApp() {
           
           <div className="flex items-center gap-2 hidden md:flex">
             {currentUser && (
-              <div className="flex items-center text-gray-300 text-sm mr-2">
-                <UserIcon className="h-4 w-4 mr-2 text-brand-secondary" />
+              <div className="flex items-center text-gray-600 text-sm mr-2 bg-white px-3 py-1.5 rounded-full border border-gray-200 shadow-sm">
+                <UserIcon className="h-4 w-4 mr-2 text-indigo-500" />
                 <span className="font-medium">{currentUser.username}</span>
               </div>
             )}
-            <button onClick={() => setIsSettingsModalOpen(true)} className="text-gray-400 hover:text-white hover:bg-white/10 p-2 rounded-full transition-all" title="Settings">
+            <button onClick={() => setIsSettingsModalOpen(true)} className="text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 p-2 rounded-full transition-all" title="Settings">
               <SettingsIcon />
             </button>
-            <button onClick={logout} className="text-sm font-medium text-red-400 hover:text-red-300 px-3 py-1.5 hover:bg-red-500/10 rounded-lg transition-all">
+            <button onClick={logout} className="text-sm font-medium text-red-500 hover:text-red-700 px-3 py-1.5 hover:bg-red-50 rounded-lg transition-all">
               Logout
             </button>
           </div>
@@ -517,7 +513,7 @@ export function MainApp() {
       </header>
       
       <div className="container mx-auto p-4 md:p-6 max-w-6xl">
-          {error && <div className="bg-red-500/10 border border-red-500/30 text-red-200 px-4 py-4 rounded-xl mb-6 shadow-lg backdrop-blur-sm" role="alert">{error}</div>}
+          {error && <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-4 rounded-xl mb-6 shadow-sm" role="alert">{error}</div>}
 
           <section className="min-h-[500px] animate-fadeIn">
             
@@ -526,23 +522,23 @@ export function MainApp() {
                   <>
                     <div className="mb-8">
                          <SearchForm onSearch={handleSearch} isLoading={isLoading || isLoadingMore} />
-                         {geolocation.error && <p className="text-sm text-yellow-400 mt-2 bg-yellow-500/10 p-2 rounded-lg inline-block border border-yellow-500/20">⚠️ Could not get location: {geolocation.error.message}.</p>}
+                         {geolocation.error && <p className="text-sm text-amber-600 mt-2 bg-amber-50 p-2 rounded-lg inline-block border border-amber-200">⚠️ Could not get location: {geolocation.error.message}.</p>}
                     </div>
 
                     {isLoading && businesses.length === 0 ? renderLoadingState() : (
                       <React.Fragment>
                         {businesses.length > 0 && (
                           <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-                            <p className="text-gray-300 font-medium bg-base-300/50 px-4 py-2 rounded-full border border-white/5">Found <span className="text-white font-bold">{businesses.length}</span> prospects{isLoading ? " (scanning...)" : ""}</p>
-                            <button onClick={handleDownloadCsv} className="bg-green-600/90 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-xl transition-all flex items-center shadow-lg shadow-green-900/20 border border-green-500/30"><DownloadIcon /><span className="ml-2">Download CSV</span></button>
+                            <p className="text-gray-600 font-medium bg-white px-4 py-2 rounded-full border border-gray-200 shadow-sm">Found <span className="text-indigo-600 font-bold">{businesses.length}</span> prospects{isLoading ? " (scanning...)" : ""}</p>
+                            <button onClick={handleDownloadCsv} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-xl transition-all flex items-center shadow-lg shadow-green-100 border border-green-500/30"><DownloadIcon /><span className="ml-2">Download CSV</span></button>
                           </div>
                         )}
                         <BusinessList businesses={businesses} onComposeEmail={handleComposeEmail} emailedBusinessIds={emailedBusinessIds} onAddToCrm={handleAddToCrm} crmContactIds={crmContactIds} />
                         
                         {isLoading && businesses.length > 0 && (
                              <div className="flex flex-col items-center py-8">
-                                <svg className="animate-spin h-8 w-8 text-brand-accent mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                <span className="text-gray-400 text-sm animate-pulse">Finding more results...</span>
+                                <svg className="animate-spin h-8 w-8 text-indigo-500 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                <span className="text-gray-500 text-sm animate-pulse">Finding more results...</span>
                              </div>
                         )}
 
@@ -553,10 +549,10 @@ export function MainApp() {
                                 <button
                                     onClick={handleLoadMore}
                                     disabled={isLoadingMore}
-                                    className="bg-base-200 hover:bg-base-300 text-white border border-white/10 font-bold py-3 px-8 rounded-xl transition-all shadow-lg hover:shadow-brand-primary/10 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center w-full sm:w-auto"
+                                    className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 font-bold py-3 px-8 rounded-xl transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center w-full sm:w-auto"
                                 >
                                     {isLoadingMore ? (
-                                        <span className="flex items-center"><svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Digging deeper...</span>
+                                        <span className="flex items-center"><svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Digging deeper...</span>
                                     ) : 'Load More Results'}
                                 </button>
                             </div>
@@ -570,10 +566,10 @@ export function MainApp() {
             {view === 'crm-list' && (
                 <>
                     <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-3xl font-bold text-white">My Pipeline</h2>
+                        <h2 className="text-3xl font-bold text-gray-900">My Pipeline</h2>
                          <button 
                             onClick={() => setIsAddContactModalOpen(true)}
-                            className="bg-brand-primary hover:bg-brand-secondary text-white font-bold py-2 px-4 rounded-lg shadow-lg transition-all flex items-center"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-lg shadow-indigo-200 transition-all flex items-center"
                         >
                             <PlusIcon className="h-5 w-5 mr-2" /> Add Lead
                         </button>
@@ -591,7 +587,7 @@ export function MainApp() {
             {/* --- CRM DETAIL VIEW --- */}
             {view === 'crm-detail' && selectedContactId && (() => {
                 const contact = crmContacts.find(c => c.id === selectedContactId);
-                if (!contact) return <div className="text-white text-center">Contact not found. <button onClick={handleBackToCrmList} className="text-brand-primary underline">Go Back</button></div>;
+                if (!contact) return <div className="text-gray-600 text-center">Contact not found. <button onClick={handleBackToCrmList} className="text-indigo-600 underline">Go Back</button></div>;
                 return (
                     <CrmDetailPage 
                         contact={contact}

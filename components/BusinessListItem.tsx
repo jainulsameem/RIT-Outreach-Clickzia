@@ -13,13 +13,13 @@ interface BusinessListItemProps {
 
 const ProfileStatusBadge: React.FC<{ status?: string }> = ({ status }) => {
     if (!status || status === 'unknown') {
-        return <span className="ml-3 text-[10px] font-bold tracking-wider py-0.5 px-2 uppercase rounded-full text-gray-400 bg-gray-800 border border-gray-600">Unknown</span>;
+        return <span className="ml-3 text-[10px] font-bold tracking-wider py-0.5 px-2 uppercase rounded-full text-gray-500 bg-gray-100 border border-gray-200">Unknown</span>;
     }
     
     const isClaimed = status === 'claimed';
     const classes = isClaimed 
-        ? 'text-green-300 bg-green-900/40 border-green-500/50'
-        : 'text-yellow-300 bg-yellow-900/40 border-yellow-500/50';
+        ? 'text-green-700 bg-green-100 border-green-200'
+        : 'text-amber-700 bg-amber-100 border-amber-200';
 
     return <span className={`ml-3 text-[10px] font-bold tracking-wider py-0.5 px-2 uppercase rounded-full border ${classes}`}>{status}</span>;
 }
@@ -33,16 +33,16 @@ export const BusinessListItem: React.FC<BusinessListItemProps> = ({ business, on
     };
 
     return (
-        <li className="group bg-card-gradient border border-white/5 p-5 rounded-xl shadow-lg hover:shadow-brand-primary/10 transition-all duration-300 hover:border-brand-primary/30 relative overflow-hidden">
+        <li className="group bg-white border border-gray-100 p-5 rounded-xl shadow-sm hover:shadow-lg hover:border-indigo-100 transition-all duration-300 relative overflow-hidden">
             {/* Hover Glow Effect */}
-            <div className="absolute inset-0 bg-gradient-to-r from-brand-primary/0 via-brand-primary/5 to-brand-secondary/0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-indigo-50 via-white to-white opacity-0 group-hover:opacity-50 transition-opacity pointer-events-none"></div>
 
             <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0 sm:gap-6">
                 <div className="flex-grow min-w-0">
                     <div className="flex items-center mb-1 flex-wrap">
-                        <h3 className="text-lg font-bold text-white truncate pr-2 flex items-center gap-2">
+                        <h3 className="text-lg font-bold text-gray-900 truncate pr-2 flex items-center gap-2">
                             {business.name}
-                             {business.source === 'facebook' && <FacebookIcon className="h-4 w-4 text-blue-400" />}
+                             {business.source === 'facebook' && <FacebookIcon className="h-4 w-4 text-blue-600" />}
                              {business.source === 'linkedin' && <LinkedInIcon className="h-4 w-4 text-[#0a66c2]" />}
                         </h3>
                         {business.source !== 'facebook' && business.source !== 'linkedin' && <ProfileStatusBadge status={business.profileStatus} />}
@@ -50,31 +50,31 @@ export const BusinessListItem: React.FC<BusinessListItemProps> = ({ business, on
                     
                     {/* Decision Maker Info */}
                     {business.contactName && (
-                        <div className="mb-3 flex items-center space-x-2 text-brand-light font-medium bg-brand-primary/5 w-fit px-2 py-1 rounded border border-brand-primary/20">
+                        <div className="mb-3 flex items-center space-x-2 text-indigo-700 font-medium bg-indigo-50 w-fit px-2 py-1 rounded border border-indigo-100">
                             <span className="text-sm">👤 {business.contactName}</span>
-                            {business.contactRole && <span className="text-xs text-gray-400">• {business.contactRole}</span>}
+                            {business.contactRole && <span className="text-xs text-gray-500">• {business.contactRole}</span>}
                         </div>
                     )}
 
                     {business.address && (
-                        <p className="text-gray-400 text-sm flex items-center mb-3">
-                            <LocationIcon /> <span className="ml-1.5 truncate">{business.address}</span>
+                        <p className="text-gray-500 text-sm flex items-center mb-3">
+                            <LocationIcon className="text-gray-400" /> <span className="ml-1.5 truncate">{business.address}</span>
                         </p>
                     )}
                     
                     <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm mt-2">
                         {business.phone && (
-                            <p className="text-gray-300 flex items-center bg-base-300/50 px-2 py-1 rounded-md border border-white/5">
-                                <PhoneIcon /> <span className="ml-2 font-mono text-xs sm:text-sm">{business.phone}</span>
+                            <p className="text-gray-600 flex items-center bg-gray-50 px-2 py-1 rounded-md border border-gray-200">
+                                <PhoneIcon className="text-gray-400" /> <span className="ml-2 font-mono text-xs sm:text-sm">{business.phone}</span>
                             </p>
                         )}
                         {business.website && (
-                            <a href={getExternalUrl(business.website)} target="_blank" rel="noopener noreferrer" className="text-brand-light hover:text-white hover:underline flex items-center bg-brand-primary/10 px-2 py-1 rounded-md border border-brand-primary/20 transition-colors">
+                            <a href={getExternalUrl(business.website)} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-800 hover:underline flex items-center bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100 transition-colors">
                                 <WebsiteIcon /> <span className="ml-2">Website</span>
                             </a>
                         )}
                         {business.linkedinUrl && (
-                             <a href={getExternalUrl(business.linkedinUrl)} target="_blank" rel="noopener noreferrer" className="text-[#0a66c2] hover:text-white hover:underline flex items-center bg-[#0a66c2]/10 px-2 py-1 rounded-md border border-[#0a66c2]/20 transition-colors">
+                             <a href={getExternalUrl(business.linkedinUrl)} target="_blank" rel="noopener noreferrer" className="text-[#0a66c2] hover:text-[#004182] hover:underline flex items-center bg-[#0a66c2]/10 px-2 py-1 rounded-md border border-[#0a66c2]/20 transition-colors">
                                 <LinkedInIcon className="h-4 w-4" /> <span className="ml-2">LinkedIn</span>
                             </a>
                         )}
@@ -85,7 +85,7 @@ export const BusinessListItem: React.FC<BusinessListItemProps> = ({ business, on
                      <button
                         onClick={() => onAddToCrm(business)}
                         disabled={isInCrm}
-                        className={`flex-1 sm:flex-none py-2.5 px-4 rounded-lg font-semibold text-sm transition-all flex items-center justify-center shadow-lg ${isInCrm ? 'bg-gray-700 text-gray-400 cursor-default' : 'bg-brand-primary hover:bg-brand-secondary text-white shadow-brand-primary/20'}`}
+                        className={`flex-1 sm:flex-none py-2.5 px-4 rounded-lg font-semibold text-sm transition-all flex items-center justify-center shadow-sm ${isInCrm ? 'bg-gray-100 text-gray-400 cursor-default border border-gray-200' : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200'}`}
                         aria-label={isInCrm ? `${business.name} is in CRM` : `Add ${business.name} to CRM`}
                     >
                         <AddToCrmIcon /> <span className="ml-2">{isInCrm ? 'Added' : 'Save'}</span>
@@ -93,7 +93,7 @@ export const BusinessListItem: React.FC<BusinessListItemProps> = ({ business, on
                     <button
                         onClick={() => onComposeEmail(business)}
                         disabled={!business.email || hasBeenEmailed}
-                        className="flex-1 sm:flex-none bg-base-200 hover:bg-base-300 border border-white/10 text-white font-semibold py-2.5 px-4 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                        className="flex-1 sm:flex-none bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 font-semibold py-2.5 px-4 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center hover:shadow-sm"
                     >
                         <EmailIcon /> <span className="ml-2">{hasBeenEmailed ? 'Sent' : 'Email'}</span>
                     </button>

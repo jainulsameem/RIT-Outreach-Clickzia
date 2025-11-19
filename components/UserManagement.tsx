@@ -1,3 +1,4 @@
+
 import React from 'react';
 import type { User, CrmContact } from '../types';
 import { UserIcon, EditIcon, TrashIcon } from './icons';
@@ -19,42 +20,42 @@ export const UserManagement: React.FC<UserManagementProps> = ({ crmContacts, onA
     };
 
     return (
-        <div className="bg-base-200 p-6 rounded-lg shadow-md">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
             <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-white">Manage Users</h2>
+                <h2 className="text-2xl font-bold text-gray-900">Manage Users</h2>
                 <button
                     onClick={onAddUser}
-                    className="bg-brand-primary hover:bg-brand-secondary text-white font-bold py-2 px-4 rounded-md transition-colors flex items-center"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-xl shadow-md transition-all flex items-center"
                 >
-                    <UserIcon className="mr-2" /> Add New User
+                    <UserIcon className="mr-2 h-4 w-4" /> Add New User
                 </button>
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-xl border border-gray-200">
                 <table className="w-full text-left">
-                    <thead>
-                        <tr className="border-b border-gray-700">
-                            <th className="p-3 text-sm font-semibold text-gray-400 uppercase">User</th>
-                            <th className="p-3 text-sm font-semibold text-gray-400 uppercase">Role</th>
-                            <th className="p-3 text-sm font-semibold text-gray-400 uppercase">Assigned Leads</th>
-                            <th className="p-3 text-sm font-semibold text-gray-400 uppercase text-right">Actions</th>
+                    <thead className="bg-gray-50">
+                        <tr className="border-b border-gray-200">
+                            <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">User</th>
+                            <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Role</th>
+                            <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Assigned Leads</th>
+                            <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-gray-100">
                         {users.map(user => (
-                            <tr key={user.id} className="border-b border-gray-700 last:border-0 hover:bg-base-300">
-                                <td className="p-3 font-medium text-white">{user.username}</td>
-                                <td className="p-3">
-                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${user.role === 'admin' ? 'bg-purple-600 text-purple-100' : 'bg-blue-600 text-blue-100'}`}>
+                            <tr key={user.id} className="hover:bg-gray-50 transition-colors">
+                                <td className="p-4 font-medium text-gray-900">{user.username}</td>
+                                <td className="p-4">
+                                    <span className={`px-2 py-1 text-xs font-bold rounded-full border ${user.role === 'admin' ? 'bg-purple-100 text-purple-700 border-purple-200' : 'bg-blue-100 text-blue-700 border-blue-200'}`}>
                                         {user.role}
                                     </span>
                                 </td>
-                                <td className="p-3 text-white">{getAssignedCount(user.id)}</td>
-                                <td className="p-3 text-right">
+                                <td className="p-4 text-gray-600">{getAssignedCount(user.id)}</td>
+                                <td className="p-4 text-right">
                                     <div className="flex justify-end gap-2">
-                                        <button onClick={() => onEditUser(user)} className="p-2 text-gray-400 hover:text-white hover:bg-base-100 rounded-md" aria-label={`Edit ${user.username}`}>
+                                        <button onClick={() => onEditUser(user)} className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" aria-label={`Edit ${user.username}`}>
                                             <EditIcon />
                                         </button>
-                                        <button onClick={() => onRemoveUser(user.id)} className="p-2 text-gray-400 hover:text-white hover:bg-base-100 rounded-md" aria-label={`Remove ${user.username}`} disabled={users.length <= 1 || user.id === 'master-admin'}>
+                                        <button onClick={() => onRemoveUser(user.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" aria-label={`Remove ${user.username}`} disabled={users.length <= 1 || user.id === 'master-admin'}>
                                             <TrashIcon />
                                         </button>
                                     </div>

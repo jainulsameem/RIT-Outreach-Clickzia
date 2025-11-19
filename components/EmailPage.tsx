@@ -148,22 +148,22 @@ export const EmailPage: React.FC<EmailPageProps> = ({ crmContacts, settings, onU
         <div className="animate-fadeIn h-[calc(100vh-100px)] flex flex-col md:flex-row gap-6 pb-6">
             
             {/* Left Panel: Recipients */}
-            <div className="w-full md:w-1/3 flex flex-col glass-panel rounded-xl border border-white/10 overflow-hidden">
-                <div className="p-4 border-b border-white/10 bg-base-300/30">
-                    <h2 className="text-lg font-bold text-white mb-2">Recipients</h2>
+            <div className="w-full md:w-1/3 flex flex-col bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="p-4 border-b border-gray-100 bg-gray-50/50">
+                    <h2 className="text-lg font-bold text-gray-900 mb-2">Recipients</h2>
                     <div className="relative">
                         <input 
                             type="text" 
                             placeholder="Search contacts..." 
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
-                            className="w-full bg-base-200 border border-gray-600 rounded-lg pl-9 pr-3 py-2 text-sm text-white focus:ring-1 focus:ring-brand-primary"
+                            className="w-full bg-white border border-gray-200 rounded-lg pl-9 pr-3 py-2 text-sm text-gray-900 focus:ring-1 focus:ring-indigo-500 outline-none"
                         />
                         <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                     </div>
-                    <div className="flex justify-between items-center mt-3 text-xs text-gray-400">
+                    <div className="flex justify-between items-center mt-3 text-xs text-gray-500">
                         <span>{selectedContactIds.size} selected</span>
-                        <button onClick={handleSelectAll} className="text-brand-primary hover:text-brand-light font-semibold">
+                        <button onClick={handleSelectAll} className="text-indigo-600 hover:text-indigo-800 font-semibold">
                             {selectedContactIds.size === filteredContacts.length && filteredContacts.length > 0 ? 'Deselect All' : 'Select All'}
                         </button>
                     </div>
@@ -171,20 +171,20 @@ export const EmailPage: React.FC<EmailPageProps> = ({ crmContacts, settings, onU
                 
                 <div className="flex-grow overflow-y-auto custom-scrollbar p-2 space-y-1">
                     {filteredContacts.length === 0 ? (
-                        <p className="text-center text-gray-500 py-8 text-sm">No contacts with email addresses found.</p>
+                        <p className="text-center text-gray-400 py-8 text-sm">No contacts with email addresses found.</p>
                     ) : (
                         filteredContacts.map(contact => (
                             <div 
                                 key={contact.id} 
                                 onClick={() => handleToggleSelect(contact.id)}
-                                className={`flex items-center p-3 rounded-lg cursor-pointer transition-colors border ${selectedContactIds.has(contact.id) ? 'bg-brand-primary/20 border-brand-primary/50' : 'hover:bg-white/5 border-transparent'}`}
+                                className={`flex items-center p-3 rounded-lg cursor-pointer transition-colors border ${selectedContactIds.has(contact.id) ? 'bg-indigo-50 border-indigo-100' : 'hover:bg-gray-50 border-transparent'}`}
                             >
-                                <div className={`w-4 h-4 rounded border mr-3 flex items-center justify-center transition-colors ${selectedContactIds.has(contact.id) ? 'bg-brand-primary border-brand-primary' : 'border-gray-500'}`}>
+                                <div className={`w-4 h-4 rounded border mr-3 flex items-center justify-center transition-colors ${selectedContactIds.has(contact.id) ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300'}`}>
                                     {selectedContactIds.has(contact.id) && <CheckIcon className="w-3 h-3 text-white" />}
                                 </div>
                                 <div className="overflow-hidden">
-                                    <p className="text-sm font-medium text-white truncate">{contact.name}</p>
-                                    <p className="text-xs text-gray-400 truncate">{contact.email}</p>
+                                    <p className="text-sm font-medium text-gray-900 truncate">{contact.name}</p>
+                                    <p className="text-xs text-gray-500 truncate">{contact.email}</p>
                                 </div>
                             </div>
                         ))
@@ -196,33 +196,33 @@ export const EmailPage: React.FC<EmailPageProps> = ({ crmContacts, settings, onU
             <div className="w-full md:w-2/3 flex flex-col gap-6">
                 
                 {/* Composer */}
-                <div className="glass-panel rounded-xl border border-white/10 p-6 flex-grow flex flex-col">
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex-grow flex flex-col">
                     <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-xl font-bold text-white">Compose Campaign</h2>
-                        <div className="text-xs text-gray-400">
-                            Sending via Gmail as <span className="text-white font-semibold">{settings.fromEmail || 'Logged in user'}</span>
+                        <h2 className="text-xl font-bold text-gray-900">Compose Campaign</h2>
+                        <div className="text-xs text-gray-500">
+                            Sending via Gmail as <span className="text-gray-800 font-semibold">{settings.fromEmail || 'Logged in user'}</span>
                         </div>
                     </div>
 
                     <div className="space-y-4 flex-grow flex flex-col">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Sender Name</label>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Sender Name</label>
                                 <input 
                                     type="text" 
                                     value={fromName} 
                                     onChange={e => setFromName(e.target.value)}
-                                    className="w-full bg-base-300/50 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:ring-1 focus:ring-brand-primary"
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-900 text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
                                     placeholder="Your Name"
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Subject Line</label>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Subject Line</label>
                                 <input 
                                     type="text" 
                                     value={subject} 
                                     onChange={e => setSubject(e.target.value)}
-                                    className="w-full bg-base-300/50 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:ring-1 focus:ring-brand-primary"
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-900 text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
                                     placeholder="Exciting opportunity..."
                                 />
                             </div>
@@ -232,27 +232,27 @@ export const EmailPage: React.FC<EmailPageProps> = ({ crmContacts, settings, onU
                             <textarea 
                                 value={body}
                                 onChange={e => setBody(e.target.value)}
-                                className="w-full h-full bg-base-300/50 border border-gray-600 rounded-lg p-4 text-white text-sm focus:ring-1 focus:ring-brand-primary resize-none"
+                                className="w-full h-full bg-gray-50 border border-gray-200 rounded-lg p-4 text-gray-900 text-sm focus:ring-1 focus:ring-indigo-500 resize-none outline-none"
                                 placeholder="Write your email content here... Use {Name} or {Business} for simple placeholders."
                             />
                             <button 
                                 onClick={handleGenerateAI}
                                 disabled={isGenerating}
-                                className="absolute bottom-4 right-4 bg-purple-600/90 hover:bg-purple-600 text-white text-xs font-bold py-1.5 px-3 rounded-lg shadow-lg backdrop-blur-sm transition-all flex items-center"
+                                className="absolute bottom-4 right-4 bg-purple-100 hover:bg-purple-200 text-purple-700 text-xs font-bold py-1.5 px-3 rounded-lg transition-all flex items-center shadow-sm"
                             >
                                 {isGenerating ? 'Generating...' : '✨ AI Draft'}
                             </button>
                         </div>
                     </div>
 
-                    <div className="mt-6 border-t border-white/10 pt-4 flex justify-between items-center">
-                         <div className="text-xs text-gray-500">
+                    <div className="mt-6 border-t border-gray-100 pt-4 flex justify-between items-center">
+                         <div className="text-xs text-gray-400">
                              <p>Tip: Ensure you have authenticated with Google in the main dashboard first.</p>
                          </div>
                          <button 
                             onClick={handleSendCampaign}
                             disabled={isSending || selectedContactIds.size === 0}
-                            className="bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-8 rounded-xl shadow-lg shadow-brand-primary/20 transition-all flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-xl shadow-lg shadow-indigo-200 transition-all flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
                          >
                              {isSending ? (
                                  <span className="flex items-center"><svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Sending... {progress}%</span>
@@ -265,22 +265,22 @@ export const EmailPage: React.FC<EmailPageProps> = ({ crmContacts, settings, onU
 
                 {/* Status / Logs Area - Only show when active or has logs */}
                 {(isSending || logs.length > 0) && (
-                    <div className="glass-panel rounded-xl border border-white/10 p-4 h-48 overflow-hidden flex flex-col">
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 h-48 overflow-hidden flex flex-col">
                         <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2">Sending Status</h3>
                         
                         {isSending && (
-                             <div className="w-full bg-gray-700 rounded-full h-2.5 mb-4">
-                                <div className="bg-brand-primary h-2.5 rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
+                             <div className="w-full bg-gray-100 rounded-full h-2.5 mb-4">
+                                <div className="bg-indigo-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
                             </div>
                         )}
 
                         <div className="flex-grow overflow-y-auto custom-scrollbar space-y-2">
                             {logs.map(log => (
-                                <div key={log.id} className="flex items-center justify-between text-xs p-2 rounded bg-base-300/30 border border-white/5">
-                                    <span className="text-white font-medium">{log.recipient}</span>
+                                <div key={log.id} className="flex items-center justify-between text-xs p-2 rounded bg-gray-50 border border-gray-100">
+                                    <span className="text-gray-900 font-medium">{log.recipient}</span>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-gray-500">{log.timestamp}</span>
-                                        <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${log.status === 'success' ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
+                                        <span className="text-gray-400">{log.timestamp}</span>
+                                        <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${log.status === 'success' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
                                             {log.message}
                                         </span>
                                     </div>
