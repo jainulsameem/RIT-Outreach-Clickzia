@@ -159,4 +159,8 @@ export interface TimeAdminSettings {
   minDailyHours: number;
   minWeeklyHours: number;
   leaveBalances: Record<LeaveType, number>; // Total allowed days per year
+  workConfig: {
+      startDay: number; // 0 = Sunday, 1 = Monday, ... 6 = Saturday
+      daysPerWeek: number; // 1 to 7
+  };
 }

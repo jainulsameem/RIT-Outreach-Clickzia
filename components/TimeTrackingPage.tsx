@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import type { TimeEntry, Project, LeaveType, TimeOffRequest, TimeAdminSettings, WeeklyTimesheet, SalaryConfig } from '../types';
 import { PlayIcon, StopIcon, ClockIcon, CalendarCheckIcon, CheckIcon, CancelIcon, SettingsIcon, CurrencyIcon, ChevronLeftIcon, ChevronRightIcon, PlusIcon, TrashIcon, EditIcon } from './icons';
@@ -14,6 +16,10 @@ const DEFAULT_SETTINGS: TimeAdminSettings = {
         'Festival': 8,
         'Sick': 7,
         'Unpaid': 0 // Infinite effectively
+    },
+    workConfig: {
+        startDay: 1, // Monday
+        daysPerWeek: 5
     }
 };
 
@@ -25,6 +31,16 @@ const CURRENCIES = [
     { label: 'AUD (A$)', symbol: 'A$' },
     { label: 'CAD (C$)', symbol: 'C$' },
     { label: 'JPY (¥)', symbol: '¥' },
+];
+
+const WEEK_DAYS = [
+    { val: 0, label: 'Sunday' },
+    { val: 1, label: 'Monday' },
+    { val: 2, label: 'Tuesday' },
+    { val: 3, label: 'Wednesday' },
+    { val: 4, label: 'Thursday' },
+    { val: 5, label: 'Friday' },
+    { val: 6, label: 'Saturday' },
 ];
 
 // --- Helpers ---
@@ -131,7 +147,10 @@ export const TimeTrackingPage: React.FC = () => {
 
             // 2. Settings
             const { data: settingsData } = await supabase.from('app_settings').select('data').eq('id', 'time_tracking_config').single();
-            if (settingsData?.data) setAdminSettings(settingsData.data);
+            if (settingsData?.data) {
+                // Merge with default to ensure new props like workConfig exist if db data is old
+                setAdminSettings({ ...DEFAULT_SETTINGS, ...settingsData.data });
+            }
 
             // 3. Time Entries
             const entryQuery = supabase.from('time_entries').select('data');
@@ -599,11 +618,19 @@ export const TimeTrackingPage: React.FC = () => {
         let lopDays = 0;
         let missedDays = 0;
 
+        // Determine configured working days indices (0=Sun, 1=Mon...)
+        const configStartDay = adminSettings.workConfig?.startDay ?? 1; // Default Mon
+        const configDaysPerWeek = adminSettings.workConfig?.daysPerWeek ?? 5; // Default 5
+        const workingDayIndices = new Set<number>();
+        for(let i = 0; i < configDaysPerWeek; i++) {
+            workingDayIndices.add((configStartDay + i) % 7);
+        }
+
         // Iterate through every day in the range
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
             const dateStr = toLocalISOString(d);
             const dayOfWeek = d.getDay();
-            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sun=0, Sat=6
+            const isWorkingDay = workingDayIndices.has(dayOfWeek);
 
             // 1. Check for Approved Leave
             const approvedLeave = leaveRequests.find(r => 
@@ -621,8 +648,8 @@ export const TimeTrackingPage: React.FC = () => {
                 continue;
             }
 
-            // 2. Check for Time Entries if not on leave and not weekend
-            if (!isWeekend) {
+            // 2. Check for Time Entries if it is a working day
+            if (isWorkingDay) {
                 const hasWork = entries.some(e => 
                     e.userId === userId && 
                     e.type === 'work' && 
@@ -1420,7 +1447,7 @@ export const TimeTrackingPage: React.FC = () => {
                              </div>
                              <p className="text-xs text-gray-400 mt-4 bg-blue-50 p-3 rounded-lg border border-blue-100 flex items-start gap-2">
                                  <span className="text-blue-500 font-bold">ℹ️</span> 
-                                 Missed Days are weekdays with no logged time and no approved leave. LOP are Approved 'Unpaid' leave days.
+                                 Missed Days are work days ({adminSettings.workConfig?.daysPerWeek || 5} days/week starting {WEEK_DAYS.find(d => d.val === (adminSettings.workConfig?.startDay || 1))?.label}) with no logged time and no approved leave. LOP are Approved 'Unpaid' leave days.
                              </p>
                          </div>
                     </div>
@@ -1502,6 +1529,53 @@ export const TimeTrackingPage: React.FC = () => {
                 <div className="animate-fadeIn bg-white p-8 rounded-3xl border border-gray-200 shadow-sm max-w-3xl mx-auto">
                     <h3 className="text-2xl font-bold text-gray-900 mb-8 flex items-center"><SettingsIcon className="mr-3 h-6 w-6 text-indigo-600"/> Admin Configuration</h3>
                     <div className="space-y-8">
+                        {/* Work Week Setup */}
+                        <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                            <h4 className="text-lg font-bold text-gray-900 mb-4">Work Week Setup</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Week Starts On</label>
+                                    <select
+                                        value={adminSettings.workConfig?.startDay ?? 1}
+                                        onChange={e => saveSettings({
+                                            ...adminSettings,
+                                            workConfig: {
+                                                ...adminSettings.workConfig,
+                                                startDay: parseInt(e.target.value),
+                                                daysPerWeek: adminSettings.workConfig?.daysPerWeek ?? 5
+                                            }
+                                        })}
+                                        className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    >
+                                        {WEEK_DAYS.map(day => (
+                                            <option key={day.val} value={day.val}>{day.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Working Days / Week</label>
+                                    <input 
+                                        type="number" 
+                                        min="1"
+                                        max="7"
+                                        value={adminSettings.workConfig?.daysPerWeek ?? 5}
+                                        onChange={e => saveSettings({
+                                            ...adminSettings,
+                                            workConfig: {
+                                                ...adminSettings.workConfig,
+                                                startDay: adminSettings.workConfig?.startDay ?? 1,
+                                                daysPerWeek: Math.max(1, Math.min(7, parseInt(e.target.value)))
+                                            }
+                                        })}
+                                        className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    />
+                                </div>
+                            </div>
+                            <p className="text-xs text-gray-400 mt-2">
+                                Note: Payroll calculations will skip days outside of this range (e.g., if 5 days starting Monday, Sat/Sun are skipped).
+                            </p>
+                        </div>
+
                         <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
                             <label className="block text-sm font-bold text-gray-700 mb-2">Minimum Weekly Hours</label>
                             <p className="text-xs text-gray-500 mb-3">Users cannot submit timesheets below this threshold.</p>
