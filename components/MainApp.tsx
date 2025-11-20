@@ -562,9 +562,11 @@ export function MainApp() {
                     <p className="text-[10px] text-indigo-600 uppercase tracking-widest font-bold">Powered by Clickzia</p>
                 </div>
              </div>
+             {/* Mobile User Menu Toggle could go here, but simplified for now */}
+             <button onClick={logout} className="md:hidden text-sm font-medium text-red-500 hover:text-red-700 px-3 py-1.5 bg-red-50 rounded-lg">Logout</button>
           </div>
 
-          {/* Main Navigation */}
+          {/* Main Navigation - Horizontal Scroll on Mobile */}
           <nav className="flex bg-gray-100/50 p-1 rounded-xl border border-gray-200 backdrop-blur-sm w-full md:w-auto overflow-x-auto no-scrollbar">
             <button 
                 onClick={() => setView('hub')}

@@ -361,7 +361,7 @@ export const InvoicePage: React.FC = () => {
                 </button>
             </div>
             <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
+                <table className="w-full text-left text-sm min-w-[600px]">
                     <thead className="bg-gray-50 text-gray-500 uppercase font-bold text-xs">
                         <tr>
                             <th className="p-4 rounded-tl-xl">Name</th>
@@ -427,20 +427,20 @@ export const InvoicePage: React.FC = () => {
             <div className="animate-fadeIn grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Editor */}
                 <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-gray-200 shadow-sm">
-                     <div className="flex justify-between mb-6">
+                     <div className="flex flex-col md:flex-row justify-between mb-6 gap-4">
                          <div>
                              <h2 className="text-2xl font-bold text-gray-900">New Invoice {currentInvoice.number}</h2>
                              <p className="text-sm text-gray-500">Date: {currentInvoice.date}</p>
                          </div>
-                         <div className="text-right">
+                         <div className="text-right w-full md:w-auto">
                              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Due Date</label>
-                             <input type="date" value={currentInvoice.dueDate} onChange={e => setCurrentInvoice({...currentInvoice, dueDate: e.target.value})} className="bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-sm outline-none"/>
+                             <input type="date" value={currentInvoice.dueDate} onChange={e => setCurrentInvoice({...currentInvoice, dueDate: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-sm outline-none"/>
                          </div>
                      </div>
 
                      <div className="mb-6 bg-gray-50 p-4 rounded-xl border border-gray-100">
                          <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Customer Details</label>
-                         <div className="flex gap-4 mb-3">
+                         <div className="flex flex-col sm:flex-row gap-4 mb-3">
                              <select 
                                 onChange={e => {
                                     const contact = crmContacts.find(c => c.id === e.target.value);
@@ -460,10 +460,10 @@ export const InvoicePage: React.FC = () => {
                                  <option value="">Select from CRM...</option>
                                  {crmContacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                              </select>
-                             <span className="text-gray-400 self-center text-xs">OR</span>
+                             <span className="text-gray-400 self-center text-xs hidden sm:block">OR</span>
                              <input type="text" placeholder="Manual Name" value={currentInvoice.customerName} onChange={e => setCurrentInvoice({...currentInvoice, customerName: e.target.value})} className="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none" />
                          </div>
-                         <div className="grid grid-cols-2 gap-4">
+                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                              <input type="text" placeholder="Email" value={currentInvoice.customerEmail} onChange={e => setCurrentInvoice({...currentInvoice, customerEmail: e.target.value})} className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none" />
                              
                              {/* Phone Number with Country Code */}
@@ -486,51 +486,55 @@ export const InvoicePage: React.FC = () => {
                                 />
                              </div>
 
-                             <input type="text" placeholder="Address" value={currentInvoice.customerAddress} onChange={e => setCurrentInvoice({...currentInvoice, customerAddress: e.target.value})} className="col-span-2 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none" />
+                             <input type="text" placeholder="Address" value={currentInvoice.customerAddress} onChange={e => setCurrentInvoice({...currentInvoice, customerAddress: e.target.value})} className="col-span-1 sm:col-span-2 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none" />
                          </div>
                      </div>
 
                      <div className="mb-6">
                          <h3 className="font-bold text-gray-900 mb-4 border-b border-gray-100 pb-2">Items</h3>
                          {currentInvoice.items.map(item => (
-                             <div key={item.id} className="flex items-center gap-4 mb-3">
-                                 <div className="flex-grow">
+                             <div key={item.id} className="flex flex-col sm:flex-row items-center gap-4 mb-3 p-2 bg-gray-50 rounded-lg sm:bg-transparent sm:p-0">
+                                 <div className="flex-grow w-full sm:w-auto text-center sm:text-left">
                                      <p className="font-medium text-sm text-gray-900">{item.description}</p>
                                      <p className="text-xs text-gray-500">{settings.currency}{item.price}</p>
                                  </div>
-                                 <input 
-                                    type="number" 
-                                    min="1" 
-                                    value={item.quantity} 
-                                    onChange={e => handleQuantityChange(item.id, parseInt(e.target.value))}
-                                    className="w-16 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-center text-sm outline-none"
-                                 />
-                                 <div className="w-20 text-right font-bold text-sm text-gray-900">{settings.currency}{item.total.toFixed(2)}</div>
-                                 <button onClick={() => handleRemoveItem(item.id)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
+                                 <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                                     <input 
+                                        type="number" 
+                                        min="1" 
+                                        value={item.quantity} 
+                                        onChange={e => handleQuantityChange(item.id, parseInt(e.target.value))}
+                                        className="w-16 bg-white sm:bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-center text-sm outline-none"
+                                     />
+                                     <div className="w-20 text-right font-bold text-sm text-gray-900">{settings.currency}{item.total.toFixed(2)}</div>
+                                     <button onClick={() => handleRemoveItem(item.id)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
+                                 </div>
                              </div>
                          ))}
                          {currentInvoice.items.length === 0 && <p className="text-center text-gray-400 italic py-4">No items added.</p>}
                      </div>
 
                      <div className="flex justify-end border-t border-gray-100 pt-4">
-                         <div className="w-64 space-y-2">
+                         <div className="w-full sm:w-64 space-y-2">
                              <div className="flex justify-between text-sm text-gray-600"><span>Subtotal</span> <span>{settings.currency}{currentInvoice.subtotal.toFixed(2)}</span></div>
                              <div className="flex justify-between text-sm text-gray-600"><span>Tax ({currentInvoice.taxRate}%)</span> <span>{settings.currency}{currentInvoice.taxAmount.toFixed(2)}</span></div>
                              <div className="flex justify-between text-xl font-bold text-gray-900 pt-2 border-t border-gray-100"><span>Total</span> <span>{settings.currency}{currentInvoice.total.toFixed(2)}</span></div>
                          </div>
                      </div>
 
-                     <div className="mt-8 flex gap-3 justify-end">
-                         <button onClick={() => setActiveTab('invoices')} className="px-4 py-2 text-gray-500 font-medium hover:bg-gray-100 rounded-xl">Cancel</button>
-                         <button onClick={() => saveInvoice('draft')} className="px-4 py-2 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200">Save Draft</button>
-                         <button onClick={() => saveInvoice('pending')} className="px-6 py-2 bg-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700">Finalize Invoice</button>
+                     <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-end">
+                         <button onClick={() => setActiveTab('invoices')} className="px-4 py-2 text-gray-500 font-medium hover:bg-gray-100 rounded-xl order-2 sm:order-1">Cancel</button>
+                         <div className="flex gap-3 order-1 sm:order-2">
+                            <button onClick={() => saveInvoice('draft')} className="flex-1 sm:flex-none px-4 py-2 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200">Save Draft</button>
+                            <button onClick={() => saveInvoice('pending')} className="flex-1 sm:flex-none px-6 py-2 bg-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700">Finalize</button>
+                         </div>
                      </div>
                 </div>
 
-                {/* Product Selector Sidebar */}
-                <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm h-fit">
+                {/* Product Selector Sidebar - Moves to bottom on mobile */}
+                <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm h-fit order-last lg:order-none">
                     <h3 className="font-bold text-gray-900 mb-4">Add Item</h3>
-                    <div className="space-y-2 max-h-[500px] overflow-y-auto custom-scrollbar">
+                    <div className="space-y-2 max-h-[300px] lg:max-h-[500px] overflow-y-auto custom-scrollbar">
                         {products.map(p => (
                             <button 
                                 key={p.id} 
@@ -564,66 +568,68 @@ export const InvoicePage: React.FC = () => {
                     }
                 `}
                 </style>
-                 <div className="flex-grow bg-white p-10 rounded-none shadow-lg border border-gray-200 print:shadow-none print:border-0 print:w-full" id="invoice-print-area">
-                     <div className="flex justify-between items-start mb-10 border-b border-gray-100 pb-8">
-                         <div>
-                             {settings.logoUrl && <img src={settings.logoUrl} alt="Logo" className="h-16 mb-4 object-contain" />}
-                             <h1 className="text-4xl font-bold text-gray-900 mb-2">{settings.companyName}</h1>
-                             <div className="text-gray-500 text-sm space-y-1">
-                                 <p>{settings.companyAddress}</p>
-                                 <p>{settings.companyPhone} | {settings.companyEmail}</p>
-                                 <p>{settings.companyWebsite}</p>
-                             </div>
-                         </div>
-                         <div className="text-right">
-                             <h2 className="text-3xl font-light text-indigo-600 mb-2">INVOICE</h2>
-                             <p className="text-gray-600 font-bold"># {currentInvoice.number}</p>
-                             <p className="text-gray-500 text-sm mt-4">Date: {currentInvoice.date}</p>
-                             <p className="text-gray-500 text-sm">Due: {currentInvoice.dueDate}</p>
-                         </div>
-                     </div>
+                 <div className="flex-grow bg-white p-10 rounded-none shadow-lg border border-gray-200 print:shadow-none print:border-0 print:w-full overflow-x-auto" id="invoice-print-area">
+                     <div className="min-w-[600px]">
+                        <div className="flex justify-between items-start mb-10 border-b border-gray-100 pb-8">
+                            <div>
+                                {settings.logoUrl && <img src={settings.logoUrl} alt="Logo" className="h-16 mb-4 object-contain" />}
+                                <h1 className="text-4xl font-bold text-gray-900 mb-2">{settings.companyName}</h1>
+                                <div className="text-gray-500 text-sm space-y-1">
+                                    <p>{settings.companyAddress}</p>
+                                    <p>{settings.companyPhone} | {settings.companyEmail}</p>
+                                    <p>{settings.companyWebsite}</p>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <h2 className="text-3xl font-light text-indigo-600 mb-2">INVOICE</h2>
+                                <p className="text-gray-600 font-bold"># {currentInvoice.number}</p>
+                                <p className="text-gray-500 text-sm mt-4">Date: {currentInvoice.date}</p>
+                                <p className="text-gray-500 text-sm">Due: {currentInvoice.dueDate}</p>
+                            </div>
+                        </div>
 
-                     <div className="mb-10">
-                         <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Bill To</h3>
-                         <p className="text-xl font-bold text-gray-900">{currentInvoice.customerName}</p>
-                         <div className="text-gray-600 text-sm mt-1">
-                            <p>{currentInvoice.customerAddress}</p>
-                            <p>{currentInvoice.customerEmail}</p>
-                            <p>{currentInvoice.customerPhone}</p>
-                         </div>
-                     </div>
+                        <div className="mb-10">
+                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Bill To</h3>
+                            <p className="text-xl font-bold text-gray-900">{currentInvoice.customerName}</p>
+                            <div className="text-gray-600 text-sm mt-1">
+                                <p>{currentInvoice.customerAddress}</p>
+                                <p>{currentInvoice.customerEmail}</p>
+                                <p>{currentInvoice.customerPhone}</p>
+                            </div>
+                        </div>
 
-                     <table className="w-full mb-10">
-                         <thead>
-                             <tr className="border-b-2 border-gray-100">
-                                 <th className="text-left py-3 text-sm font-bold text-gray-600 uppercase">Description</th>
-                                 <th className="text-right py-3 text-sm font-bold text-gray-600 uppercase">Qty</th>
-                                 <th className="text-right py-3 text-sm font-bold text-gray-600 uppercase">Price</th>
-                                 <th className="text-right py-3 text-sm font-bold text-gray-600 uppercase">Total</th>
-                             </tr>
-                         </thead>
-                         <tbody className="divide-y divide-gray-5">
-                             {currentInvoice.items.map(item => (
-                                 <tr key={item.id}>
-                                     <td className="py-4 text-gray-800">{item.description}</td>
-                                     <td className="py-4 text-right text-gray-600">{item.quantity}</td>
-                                     <td className="py-4 text-right text-gray-600">{settings.currency}{item.price.toFixed(2)}</td>
-                                     <td className="py-4 text-right font-bold text-gray-900">{settings.currency}{item.total.toFixed(2)}</td>
-                                 </tr>
-                             ))}
-                         </tbody>
-                     </table>
+                        <table className="w-full mb-10">
+                            <thead>
+                                <tr className="border-b-2 border-gray-100">
+                                    <th className="text-left py-3 text-sm font-bold text-gray-600 uppercase">Description</th>
+                                    <th className="text-right py-3 text-sm font-bold text-gray-600 uppercase">Qty</th>
+                                    <th className="text-right py-3 text-sm font-bold text-gray-600 uppercase">Price</th>
+                                    <th className="text-right py-3 text-sm font-bold text-gray-600 uppercase">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-5">
+                                {currentInvoice.items.map(item => (
+                                    <tr key={item.id}>
+                                        <td className="py-4 text-gray-800">{item.description}</td>
+                                        <td className="py-4 text-right text-gray-600">{item.quantity}</td>
+                                        <td className="py-4 text-right text-gray-600">{settings.currency}{item.price.toFixed(2)}</td>
+                                        <td className="py-4 text-right font-bold text-gray-900">{settings.currency}{item.total.toFixed(2)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
 
-                     <div className="flex justify-end mb-10">
-                         <div className="w-1/2 lg:w-1/3 space-y-3">
-                             <div className="flex justify-between text-gray-600"><span>Subtotal</span> <span>{settings.currency}{currentInvoice.subtotal.toFixed(2)}</span></div>
-                             <div className="flex justify-between text-gray-600"><span>Tax ({currentInvoice.taxRate}%)</span> <span>{settings.currency}{currentInvoice.taxAmount.toFixed(2)}</span></div>
-                             <div className="flex justify-between text-2xl font-bold text-indigo-600 pt-4 border-t border-gray-200"><span>Total</span> <span>{settings.currency}{currentInvoice.total.toFixed(2)}</span></div>
-                         </div>
-                     </div>
-                     
-                     <div className="text-center text-gray-400 text-sm pt-10 border-t border-gray-100">
-                         <p>Thank you for your business!</p>
+                        <div className="flex justify-end mb-10">
+                            <div className="w-1/2 lg:w-1/3 space-y-3">
+                                <div className="flex justify-between text-gray-600"><span>Subtotal</span> <span>{settings.currency}{currentInvoice.subtotal.toFixed(2)}</span></div>
+                                <div className="flex justify-between text-gray-600"><span>Tax ({currentInvoice.taxRate}%)</span> <span>{settings.currency}{currentInvoice.taxAmount.toFixed(2)}</span></div>
+                                <div className="flex justify-between text-2xl font-bold text-indigo-600 pt-4 border-t border-gray-200"><span>Total</span> <span>{settings.currency}{currentInvoice.total.toFixed(2)}</span></div>
+                            </div>
+                        </div>
+                        
+                        <div className="text-center text-gray-400 text-sm pt-10 border-t border-gray-100">
+                            <p>Thank you for your business!</p>
+                        </div>
                      </div>
                  </div>
 
@@ -668,11 +674,11 @@ export const InvoicePage: React.FC = () => {
                     </div>
                     <h1 className="text-2xl font-bold text-gray-900">Invoicing & Inventory</h1>
                 </div>
-                <div className="flex gap-2 bg-white p-1 rounded-xl border border-gray-200 shadow-sm">
-                    <button onClick={() => setActiveTab('dashboard')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${activeTab === 'dashboard' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>Dashboard</button>
-                    <button onClick={() => setActiveTab('invoices')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${activeTab === 'invoices' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>Invoices</button>
-                    <button onClick={() => setActiveTab('inventory')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${activeTab === 'inventory' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>Inventory</button>
-                    <button onClick={() => setActiveTab('settings')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>Settings</button>
+                <div className="flex gap-2 bg-white p-1 rounded-xl border border-gray-200 shadow-sm overflow-x-auto w-full md:w-auto no-scrollbar">
+                    <button onClick={() => setActiveTab('dashboard')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors whitespace-nowrap ${activeTab === 'dashboard' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>Dashboard</button>
+                    <button onClick={() => setActiveTab('invoices')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors whitespace-nowrap ${activeTab === 'invoices' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>Invoices</button>
+                    <button onClick={() => setActiveTab('inventory')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors whitespace-nowrap ${activeTab === 'inventory' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>Inventory</button>
+                    <button onClick={() => setActiveTab('settings')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors whitespace-nowrap ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>Settings</button>
                 </div>
             </div>
 
@@ -690,7 +696,7 @@ export const InvoicePage: React.FC = () => {
                             </button>
                         </div>
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm">
+                            <table className="w-full text-left text-sm min-w-[700px]">
                                 <thead className="bg-gray-50 text-gray-500 uppercase font-bold text-xs">
                                     <tr>
                                         <th className="p-4 rounded-tl-xl">Number</th>
@@ -734,7 +740,7 @@ export const InvoicePage: React.FC = () => {
                         <h2 className="text-2xl font-bold text-gray-900 mb-6">Organization Settings</h2>
                         <div className="space-y-4">
                             <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Company Name</label><input type="text" value={settings.companyName} onChange={e => setSettings({...settings, companyName: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"/></div>
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Email</label><input type="text" value={settings.companyEmail} onChange={e => setSettings({...settings, companyEmail: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"/></div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Phone</label><input type="text" value={settings.companyPhone} onChange={e => setSettings({...settings, companyPhone: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"/></div>
                             </div>
@@ -742,7 +748,7 @@ export const InvoicePage: React.FC = () => {
                             
                              <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Company Logo</label>
-                                <div className="flex items-center gap-4">
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                                     {settings.logoUrl && (
                                         <img src={settings.logoUrl} alt="Logo Preview" className="h-12 w-12 object-contain border border-gray-200 rounded-lg" />
                                     )}

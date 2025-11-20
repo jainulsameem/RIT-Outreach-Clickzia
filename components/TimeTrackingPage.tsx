@@ -1457,6 +1457,112 @@ export const TimeTrackingPage: React.FC = () => {
                 </div>
             )}
 
+            {/* --- TIME OFF TAB --- */}
+            {activeTab === 'timeoff' && (
+                <div className="animate-fadeIn space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {/* Balances Card */}
+                        <div className="lg:col-span-3 bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
+                             <h3 className="text-lg font-bold text-gray-900 mb-4">Leave Balances</h3>
+                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                                 {Object.keys(adminSettings.leaveBalances).map(type => {
+                                     if (type === 'Unpaid') return null;
+                                     const bal = calculateBalance(currentUser?.id || '', type as LeaveType);
+                                     return (
+                                         <div key={type} className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100 text-center">
+                                             <p className="text-indigo-500 text-xs font-bold uppercase mb-1">{type}</p>
+                                             <p className="text-3xl font-bold text-indigo-900">{bal}</p>
+                                             <p className="text-[10px] text-indigo-400">days left</p>
+                                         </div>
+                                     );
+                                 })}
+                             </div>
+                        </div>
+
+                        {/* Request Form */}
+                        <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
+                             <h3 className="text-lg font-bold text-gray-900 mb-6">Book Time Off</h3>
+                             <form onSubmit={handleBookLeave} className="space-y-4">
+                                 <div>
+                                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Leave Type</label>
+                                     <select 
+                                        value={leaveForm.type} 
+                                        onChange={e => setLeaveForm({...leaveForm, type: e.target.value as LeaveType})}
+                                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    >
+                                         {Object.keys(adminSettings.leaveBalances).map(t => <option key={t} value={t}>{t}</option>)}
+                                     </select>
+                                 </div>
+                                 <div className="grid grid-cols-2 gap-4">
+                                     <div>
+                                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Start Date</label>
+                                         <input type="date" required value={leaveForm.startDate} onChange={e => setLeaveForm({...leaveForm, startDate: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"/>
+                                     </div>
+                                     <div>
+                                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1">End Date</label>
+                                         <input type="date" required value={leaveForm.endDate} onChange={e => setLeaveForm({...leaveForm, endDate: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"/>
+                                     </div>
+                                 </div>
+                                 <div>
+                                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Reason</label>
+                                     <textarea required value={leaveForm.reason} onChange={e => setLeaveForm({...leaveForm, reason: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none" rows={3} placeholder="Why do you need time off?"/>
+                                 </div>
+                                 <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-95">Submit Request</button>
+                             </form>
+                        </div>
+
+                        {/* My Requests List */}
+                        <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
+                             <h3 className="text-lg font-bold text-gray-900 mb-6">My Requests</h3>
+                             <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                                 {leaveRequests.filter(r => r.userId === currentUser?.id).length === 0 && <p className="text-gray-400 italic text-center py-8">No history.</p>}
+                                 {leaveRequests.filter(r => r.userId === currentUser?.id).map(req => (
+                                     <div key={req.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
+                                         <div>
+                                             <span className="font-bold text-gray-800 text-sm block mb-1">{req.type} Leave</span>
+                                             <span className="text-xs text-gray-500">{req.startDate} to {req.endDate}</span>
+                                             <p className="text-xs text-gray-400 mt-1 italic">"{req.reason}"</p>
+                                         </div>
+                                         <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
+                                             req.status === 'approved' ? 'bg-green-100 text-green-700' : 
+                                             req.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                                         }`}>
+                                             {req.status}
+                                         </span>
+                                     </div>
+                                 ))}
+                             </div>
+                        </div>
+
+                        {/* Admin Approvals */}
+                        {currentUser?.role === 'admin' && (
+                            <div className="lg:col-span-3 bg-white p-6 rounded-3xl border border-gray-200 shadow-sm border-t-4 border-t-indigo-500">
+                                <h3 className="text-lg font-bold text-gray-900 mb-6">Pending Approvals (Admin)</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                     {leaveRequests.filter(r => r.status === 'pending').length === 0 && <p className="text-gray-400 italic col-span-2 text-center py-8">No pending requests.</p>}
+                                     {leaveRequests.filter(r => r.status === 'pending').map(req => {
+                                         const user = users.find(u => u.id === req.userId);
+                                         return (
+                                             <div key={req.id} className="bg-yellow-50 p-4 rounded-2xl border border-yellow-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                                 <div>
+                                                     <p className="font-bold text-gray-900 text-lg">{user?.username}</p>
+                                                     <p className="text-sm font-medium text-yellow-800">{req.type} Leave • {req.startDate} to {req.endDate}</p>
+                                                     <p className="text-xs text-gray-600 mt-1 italic">"{req.reason}"</p>
+                                                 </div>
+                                                 <div className="flex gap-2">
+                                                     <button onClick={() => handleLeaveAction(req.id, 'approve')} className="bg-green-600 text-white p-2 rounded-lg hover:bg-green-700 transition-colors"><CheckIcon className="h-5 w-5" /></button>
+                                                     <button onClick={() => handleLeaveAction(req.id, 'reject')} className="bg-red-500 text-white p-2 rounded-lg hover:bg-red-600 transition-colors"><CancelIcon className="h-5 w-5" /></button>
+                                                 </div>
+                                             </div>
+                                         );
+                                     })}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {/* --- PAYROLL TAB (Admin Only) --- */}
             {activeTab === 'payroll' && currentUser?.role === 'admin' && (
                 <div className="animate-fadeIn space-y-6">

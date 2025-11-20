@@ -73,7 +73,7 @@ export const CrmList: React.FC<CrmListProps> = ({ contacts, onViewDetails, users
         <div className="space-y-4">
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
+                    <table className="w-full text-left border-collapse min-w-[900px]">
                         <thead>
                             <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider font-semibold border-b border-gray-200">
                                 <th className="p-4">Business / Source</th>
