@@ -137,9 +137,11 @@ export const TimeTrackingPage: React.FC = () => {
             // If User, fetch only own data.
             const orgUserIds = users.map(u => u.id);
 
-            // 1. Projects (fetch all, filter in memory for simplicity)
-            // Ideally projects should have organization_id too, but for now createdBy checks work if users are scoped
-            const { data: projData } = await supabase.from('projects').select('data');
+            // 1. Projects
+            const { data: projData, error: projError } = await supabase.from('projects').select('data');
+            if (projError) {
+                console.error("Error fetching projects:", projError);
+            }
             if (projData) {
                 const allProjs = projData.map((r: any) => r.data);
                 // Filter projects created by org users or global
@@ -206,12 +208,11 @@ export const TimeTrackingPage: React.FC = () => {
 
     useEffect(() => {
         fetchData();
-    }, [currentUser, activeTab, users]); // Added users dependency to re-fetch when auth context loads users
+    }, [currentUser, activeTab, users]);
 
     useEffect(() => {
         // Set default admin user selection if not set
         if (currentUser?.role === 'admin' && !adminSelectedUserId && users.length > 0) {
-            // Default to first non-admin user if possible, else first user
             const firstUser = users.find(u => u.role !== 'admin') || users[0];
             if (firstUser) setAdminSelectedUserId(firstUser.id);
         }
@@ -227,14 +228,12 @@ export const TimeTrackingPage: React.FC = () => {
     // --- Helpers for Database Updates ---
 
     const saveTimeEntry = async (entry: TimeEntry) => {
-        // Optimistic update
         setEntries(prev => {
             const exists = prev.find(e => e.id === entry.id);
             if (exists) return prev.map(e => e.id === entry.id ? entry : e);
             return [entry, ...prev];
         });
         
-        // IMPORTANT: Explicitly map userId to user_id column for row-level security/filtering to work
         const { error } = await supabase.from('time_entries').upsert({ 
             id: entry.id, 
             user_id: entry.userId, 
@@ -244,12 +243,9 @@ export const TimeTrackingPage: React.FC = () => {
         if (error) {
             console.error("Error saving time entry:", error);
             alert("Failed to save entry to database. Please try again.");
-            // Revert optimistic update could go here, but simple reload is safer
             fetchData();
         } else {
-            // Re-fetch to ensure sync, especially if we created for another user
              if (entry.userId !== currentUser?.id) {
-                 // Small delay to ensure DB write propagation
                  setTimeout(fetchData, 200); 
              }
         }
@@ -302,8 +298,22 @@ export const TimeTrackingPage: React.FC = () => {
             createdBy: currentUser.id
         };
 
+        // Optimistic update
         setProjects(prev => [...prev, newProj]);
-        await supabase.from('projects').upsert({ id: newProj.id, user_id: currentUser.id, data: newProj });
+        
+        const { error } = await supabase.from('projects').upsert({ 
+            id: newProj.id, 
+            user_id: currentUser.id, 
+            data: newProj 
+        });
+        
+        if (error) {
+            console.error("Error saving project:", error);
+            alert(`Failed to save project: ${error.message}. Please check if 'projects' table exists in your database.`);
+            // Rollback optimistic update
+            setProjects(prev => prev.filter(p => p.id !== newProj.id));
+            return;
+        }
         
         setSelectedProject(newProj.id);
         setNewProjectName('');
@@ -397,8 +407,6 @@ export const TimeTrackingPage: React.FC = () => {
             });
         } else {
             const now = new Date();
-            // CRITICAL FIX: Ensure correct User ID is selected.
-            // Priority: Passed targetUserId -> adminSelectedUserId -> currentUser.id
             const effectiveUserId = targetUserId || adminSelectedUserId || currentUser?.id || '';
             
             setManualEntryForm({
@@ -437,15 +445,24 @@ export const TimeTrackingPage: React.FC = () => {
                 id: newProjId,
                 name: manualProjectName.trim(),
                 color: manualProjectColor,
-                // For manual entry by Admin, force Global. For user manual entry (if enabled), assume personal.
-                // But typically only Admins manual entry. 
                 scope: currentUser.role === 'admin' ? 'global' : 'personal',
                 createdBy: currentUser.id
             };
 
             // Save the new project first
             setProjects(prev => [...prev, newProj]);
-            await supabase.from('projects').upsert({ id: newProj.id, user_id: currentUser.id, data: newProj });
+            
+            const { error: projError } = await supabase.from('projects').upsert({ 
+                id: newProj.id, 
+                user_id: currentUser.id, 
+                data: newProj 
+            });
+
+            if (projError) {
+                alert(`Failed to create project: ${projError.message}`);
+                setProjects(prev => prev.filter(p => p.id !== newProjId));
+                return;
+            }
             
             finalProjectId = newProjId;
         } else if (!projectId && !isManualProjectInput) {
@@ -1134,7 +1151,7 @@ export const TimeTrackingPage: React.FC = () => {
                                             )}
                                         </select>
                                         <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none text-gray-400">
-                                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"></path></svg>
                                         </div>
                                     </div>
                                     <button 
