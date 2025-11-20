@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import type { TimeEntry, Project, LeaveType, TimeOffRequest, TimeAdminSettings, WeeklyTimesheet, SalaryConfig } from '../types';
-import { PlayIcon, StopIcon, ClockIcon, CalendarCheckIcon, CheckIcon, CancelIcon, SettingsIcon, CurrencyIcon, ChevronLeftIcon, ChevronRightIcon, PlusIcon, TrashIcon, EditIcon } from './icons';
+import { PlayIcon, StopIcon, ClockIcon, CalendarCheckIcon, CheckIcon, CancelIcon, SettingsIcon, CurrencyIcon, ChevronLeftIcon, ChevronRightIcon, PlusIcon, TrashIcon, EditIcon, ChevronDownIcon, ChevronUpIcon } from './icons';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/supabaseClient';
 
@@ -108,6 +108,7 @@ export const TimeTrackingPage: React.FC = () => {
 
     // Timesheet View State
     const [viewWeekStart, setViewWeekStart] = useState<Date>(getMonday(new Date()));
+    const [expandedDay, setExpandedDay] = useState<string | null>(null);
 
     // Admin Timesheet Management State
     const [adminSelectedUserId, setAdminSelectedUserId] = useState<string>('');
@@ -742,6 +743,103 @@ export const TimeTrackingPage: React.FC = () => {
         const newDate = new Date(viewWeekStart);
         newDate.setDate(newDate.getDate() + (dir * 7));
         setViewWeekStart(newDate);
+        setExpandedDay(null); // Collapse day view on week change
+    };
+
+    // New Render Helper for Daily Breakdown Rows
+    const renderDayRows = (targetUserId: string, isAdmin: boolean) => {
+        const entriesForWeek = getEntriesForWeek(targetUserId, viewWeekStart);
+        
+        return (
+            <div className="space-y-3">
+                {Array.from({length: 7}).map((_, i) => {
+                    const dayDate = new Date(viewWeekStart);
+                    dayDate.setDate(dayDate.getDate() + i);
+                    const dayStr = formatDateISO(dayDate);
+                    const dayLabel = WEEK_DAYS[dayDate.getDay()].label;
+                    
+                    const dayEntries = entriesForWeek.filter(e => e.startTime.startsWith(dayStr));
+                    const dayTotal = calculateWeeklyHours(dayEntries);
+                    const isExpanded = expandedDay === dayStr;
+                    const hasEntries = dayEntries.length > 0;
+
+                    return (
+                        <div key={dayStr} className={`rounded-xl border transition-all duration-300 overflow-hidden ${isExpanded ? 'bg-white border-indigo-200 shadow-md' : 'bg-gray-50 border-gray-200 hover:bg-white'}`}>
+                            <button 
+                                onClick={() => setExpandedDay(isExpanded ? null : dayStr)}
+                                className="w-full flex items-center justify-between p-4"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className={`p-2 rounded-lg ${hasEntries ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-200 text-gray-400'}`}>
+                                        {isExpanded ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                                    </div>
+                                    <div className="text-left">
+                                        <p className={`font-bold ${hasEntries ? 'text-gray-900' : 'text-gray-500'}`}>{dayLabel}</p>
+                                        <p className="text-xs text-gray-400">{dayStr}</p>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex items-center gap-4">
+                                    {hasEntries && (
+                                        <div className="hidden sm:block w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                            <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${Math.min(100, (dayTotal / 8) * 100)}%` }}></div>
+                                        </div>
+                                    )}
+                                    <span className={`font-mono text-lg font-bold ${hasEntries ? 'text-indigo-600' : 'text-gray-400'}`}>
+                                        {dayTotal.toFixed(2)}h
+                                    </span>
+                                </div>
+                            </button>
+
+                            {isExpanded && (
+                                <div className="border-t border-gray-100 bg-white p-4 animate-fadeIn">
+                                    {dayEntries.length > 0 ? (
+                                        <ul className="space-y-2">
+                                            {dayEntries.map(e => {
+                                                const duration = e.endTime ? new Date(e.endTime).getTime() - new Date(e.startTime).getTime() : 0;
+                                                const projName = projects.find(p => p.id === e.projectId)?.name || (e.type === 'break' ? 'Break' : 'Unknown');
+                                                // Admins can edit/delete all entries. Users can only edit/delete 'draft' status.
+                                                const canEdit = isAdmin || e.status === 'draft';
+
+                                                return (
+                                                    <li key={e.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg bg-gray-50 border border-gray-100 text-sm gap-3">
+                                                        <div>
+                                                            <span className="font-bold text-gray-800 block">{e.taskName}</span>
+                                                            <span className="text-gray-500 text-xs">{projName} • {new Date(e.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {e.endTime ? new Date(e.endTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Active'}</span>
+                                                        </div>
+                                                        <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
+                                                            <span className="font-mono font-bold text-gray-700">{formatDuration(duration)}</span>
+                                                            {canEdit && (
+                                                                <div className="flex gap-1">
+                                                                    <button onClick={() => openEntryModal(e, targetUserId)} className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-white rounded-md transition-colors" title="Edit"><EditIcon className="h-4 w-4"/></button>
+                                                                    <button 
+                                                                        onClick={() => {
+                                                                            if(window.confirm("Are you sure you want to delete this time entry?")) {
+                                                                                deleteTimeEntry(e.id);
+                                                                            }
+                                                                        }} 
+                                                                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-white rounded-md transition-colors"
+                                                                        title="Delete"
+                                                                    >
+                                                                        <TrashIcon className="h-4 w-4"/>
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </li>
+                                                );
+                                            })}
+                                        </ul>
+                                    ) : (
+                                        <p className="text-center text-gray-400 italic text-sm py-2">No entries logged for this day.</p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        );
     };
 
     const currentWeekStart = getMonday(new Date());
@@ -897,7 +995,7 @@ export const TimeTrackingPage: React.FC = () => {
                                             {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                                         </select>
                                         <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none text-gray-400">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"></path></svg>
                                         </div>
                                     </div>
                                 )}
@@ -1212,23 +1310,10 @@ export const TimeTrackingPage: React.FC = () => {
                                             </div>
                                         </div>
 
-                                        {/* List Entries */}
+                                        {/* Day View List */}
                                         <div className="border-t border-gray-100 pt-6">
-                                             <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Logged Items</h3>
-                                             <div className="bg-gray-50 rounded-2xl border border-gray-200 overflow-hidden">
-                                                 <ul className="divide-y divide-gray-200">
-                                                     {currentWeekEntries.map(e => (
-                                                         <li key={e.id} className="flex justify-between text-sm p-4 hover:bg-white transition-colors">
-                                                             <div>
-                                                                 <span className="font-bold text-gray-800 block">{e.taskName}</span>
-                                                                 <span className="text-gray-500 text-xs">{new Date(e.startTime).toLocaleDateString()}</span>
-                                                             </div>
-                                                             <span className="text-gray-700 font-mono font-bold bg-white px-2 py-1 rounded border border-gray-200 h-fit">{formatDuration(e.endTime ? new Date(e.endTime).getTime() - new Date(e.startTime).getTime() : 0)}</span>
-                                                         </li>
-                                                     ))}
-                                                     {currentWeekEntries.length === 0 && <li className="text-gray-400 text-sm italic p-6 text-center">No entries logged for this week.</li>}
-                                                 </ul>
-                                             </div>
+                                             <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Daily Breakdown</h3>
+                                             {renderDayRows(currentUser.id, false)}
                                         </div>
 
                                         <div className="flex justify-end pt-4">
@@ -1331,7 +1416,7 @@ export const TimeTrackingPage: React.FC = () => {
                                             </div>
 
                                             <div className="flex justify-between items-center">
-                                                 <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider">Logged Entries</h3>
+                                                 <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider">Daily Breakdown</h3>
                                                  <button 
                                                     onClick={() => openEntryModal(undefined, adminSelectedUserId)}
                                                     className="text-xs font-bold bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-4 py-2 rounded-xl flex items-center transition-colors"
@@ -1340,59 +1425,8 @@ export const TimeTrackingPage: React.FC = () => {
                                                  </button>
                                             </div>
 
-                                            <div className="overflow-x-auto rounded-xl border border-gray-200">
-                                                <table className="w-full text-left text-sm">
-                                                    <thead className="bg-gray-50">
-                                                        <tr className="text-gray-500 border-b border-gray-200">
-                                                            <th className="p-4 font-medium text-xs uppercase tracking-wider">Date</th>
-                                                            <th className="p-4 font-medium text-xs uppercase tracking-wider">Task / Project</th>
-                                                            <th className="p-4 font-medium text-xs uppercase tracking-wider">Time</th>
-                                                            <th className="p-4 font-medium text-xs uppercase tracking-wider">Duration</th>
-                                                            <th className="p-4 font-medium text-xs uppercase tracking-wider text-right">Actions</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-gray-100 bg-white">
-                                                        {userEntries.map(e => {
-                                                            const duration = e.endTime ? new Date(e.endTime).getTime() - new Date(e.startTime).getTime() : 0;
-                                                            const projName = projects.find(p => p.id === e.projectId)?.name || (e.type === 'break' ? 'Break' : 'Unknown');
-                                                            return (
-                                                                <tr key={e.id} className="hover:bg-gray-50 transition-colors">
-                                                                    <td className="p-4 text-gray-600 whitespace-nowrap">{new Date(e.startTime).toLocaleDateString()}</td>
-                                                                    <td className="p-4">
-                                                                        <div className="text-gray-900 font-medium">{e.taskName}</div>
-                                                                        <div className="text-xs text-gray-500">{projName}</div>
-                                                                    </td>
-                                                                    <td className="p-4 text-gray-500 text-xs whitespace-nowrap">
-                                                                        {new Date(e.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - 
-                                                                        {e.endTime ? new Date(e.endTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Active'}
-                                                                    </td>
-                                                                    <td className="p-4 font-mono text-gray-700 font-bold">{formatDuration(duration)}</td>
-                                                                    <td className="p-4 text-right">
-                                                                        <div className="flex justify-end gap-2">
-                                                                            <button onClick={() => openEntryModal(e, adminSelectedUserId)} className="p-2 text-gray-400 hover:text-indigo-600 bg-gray-100 hover:bg-indigo-50 rounded-lg transition-colors"><EditIcon className="h-4 w-4"/></button>
-                                                                            <button 
-                                                                                onClick={() => {
-                                                                                    if(window.confirm("Are you sure you want to delete this time entry?")) {
-                                                                                        deleteTimeEntry(e.id);
-                                                                                    }
-                                                                                }} 
-                                                                                className="p-2 text-gray-400 hover:text-red-600 bg-gray-100 hover:bg-red-50 rounded-lg transition-colors"
-                                                                            >
-                                                                                <TrashIcon className="h-4 w-4"/>
-                                                                            </button>
-                                                                        </div>
-                                                                    </td>
-                                                                </tr>
-                                                            );
-                                                        })}
-                                                        {userEntries.length === 0 && (
-                                                            <tr>
-                                                                <td colSpan={5} className="p-8 text-center text-gray-400 italic bg-gray-50">No entries recorded for this week.</td>
-                                                            </tr>
-                                                        )}
-                                                    </tbody>
-                                                </table>
-                                            </div>
+                                            {renderDayRows(adminSelectedUserId, true)}
+
                                         </div>
                                     );
                                 })() : (
