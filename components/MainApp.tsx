@@ -10,20 +10,22 @@ import { CrmFilterBar } from './CrmFilterBar';
 import { UserManagement } from './UserManagement';
 import { AddEditUserModal } from './AddEditUserModal';
 import { AddContactModal } from './AddContactModal';
-import { EmailPage } from './EmailPage'; // Import EmailPage
-import { TimeTrackingPage } from './TimeTrackingPage'; // Import TimeTrackingPage
-import { SettingsIcon, UserIcon, DownloadIcon, PlusIcon, InboxIcon, ClockIcon } from './icons'; // Import InboxIcon, ClockIcon
+import { EmailPage } from './EmailPage'; 
+import { TimeTrackingPage } from './TimeTrackingPage'; 
+import { SuperAdminDashboard } from './SuperAdminDashboard'; 
+import { InvoicePage } from './InvoicePage'; // New Import
+import { SettingsIcon, UserIcon, DownloadIcon, PlusIcon, InboxIcon, ClockIcon, GridIcon, SearchIcon, BriefcaseIcon, LeadexisLogo, DocumentTextIcon } from './icons'; 
 import { useGeolocation } from '../hooks/useGeolocation';
 import { useAuth } from '../context/AuthContext';
 import { findBusinesses, findBusinessesOnFacebook, findDecisionMakers } from '../services/geminiService';
 import { supabase } from '../services/supabaseClient';
 import type { Business, Settings, CrmContact, LeadStatus, User, CrmFilters, GroundingChunk, SearchParams } from '../types';
 
-// Define view states to act like pages
-type ViewState = 'search' | 'crm-list' | 'crm-detail' | 'users' | 'email-campaign' | 'time-tracking';
+// Updated ViewState
+type ViewState = 'hub' | 'search' | 'crm-list' | 'crm-detail' | 'users' | 'email-campaign' | 'time-tracking' | 'super-admin' | 'invoicing';
 
 export function MainApp() {
-  const [view, setView] = useState<ViewState>('search');
+  const [view, setView] = useState<ViewState>('hub'); 
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
 
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -62,11 +64,20 @@ export function MainApp() {
 
   const geolocation = useGeolocation();
 
+  // Check Permissions Helper
+  const hasAccess = (toolId: string) => {
+      if (!currentUser) return false;
+      if (currentUser.role === 'admin') return true; // Admins have all access
+      return currentUser.allowedTools?.includes(toolId) ?? false;
+  };
+
   // Load CRM Contacts from Supabase
   useEffect(() => {
     const loadContacts = async () => {
+        if (!currentUser) return;
         try {
-            const { data, error } = await supabase.from('crm_contacts').select('*');
+            let query = supabase.from('crm_contacts').select('*');
+            const { data, error } = await query;
             if (error) {
                 console.error("Error loading contacts from Supabase:", JSON.stringify(error, null, 2));
             } else if (data) {
@@ -78,7 +89,7 @@ export function MainApp() {
         }
     };
     loadContacts();
-  }, []);
+  }, [currentUser]);
 
   // Load Settings from Supabase
   useEffect(() => {
@@ -260,7 +271,7 @@ export function MainApp() {
       const newContact: CrmContact = { 
           ...business, 
           status: 'New',
-          source: 'custom', // Explicitly marking as custom
+          source: 'custom', 
           activities: [{ id: Date.now().toString(), type: 'created', content: 'Manual lead created.', timestamp: new Date().toISOString() }] 
       };
       setCrmContacts(prev => [...prev, newContact]);
@@ -268,7 +279,6 @@ export function MainApp() {
   };
 
   const handleRemoveFromCrm = async (businessId: string) => {
-      // If deleting the currently viewed contact, go back to list
       if (selectedContactId === businessId) {
           setView('crm-list');
           setSelectedContactId(null);
@@ -333,10 +343,11 @@ export function MainApp() {
   };
 
   const handleSaveUser = (user: User) => {
+    const updatedUser = { ...user, organizationId: currentUser?.organizationId };
     if (user.id) {
-      setUsers(users.map(u => u.id === user.id ? user : u));
+      setUsers(users.map(u => u.id === user.id ? updatedUser : u));
     } else {
-      setUsers([...users, { ...user, id: `user-${Date.now()}` }]);
+      setUsers([...users, { ...updatedUser, id: `user-${Date.now()}` }]);
     }
   };
   
@@ -385,7 +396,6 @@ export function MainApp() {
 
   const crmContactIds = React.useMemo(() => crmContacts.map(c => c.id), [crmContacts]);
 
-  // --- Navigation Logic ---
   const handleViewDetails = (contactId: string) => {
       setSelectedContactId(contactId);
       setView('crm-detail');
@@ -442,55 +452,174 @@ export function MainApp() {
     );
   };
 
+  const HubCard = ({ title, description, icon, onClick, colorClass }: { title: string, description: string, icon: React.ReactNode, onClick: () => void, colorClass: string }) => (
+      <button 
+        onClick={onClick}
+        className="group relative bg-white p-8 rounded-3xl border border-gray-200 shadow-sm hover:shadow-xl transition-all duration-300 text-left flex flex-col h-full overflow-hidden hover:-translate-y-1"
+      >
+          <div className={`absolute top-0 left-0 w-full h-2 ${colorClass}`}></div>
+          <div className="mb-6 p-4 rounded-2xl bg-gray-50 w-fit group-hover:bg-gray-100 transition-colors">
+              <div className="text-gray-700 group-hover:text-indigo-600 transition-colors">
+                {icon}
+              </div>
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900 mb-2">{title}</h3>
+          <p className="text-gray-500 text-sm leading-relaxed">{description}</p>
+          <div className="mt-auto pt-6 flex items-center text-sm font-bold text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0">
+              Open Tool &rarr;
+          </div>
+      </button>
+  );
+
+  const renderHub = () => (
+      <div className="animate-fadeIn max-w-5xl mx-auto py-8">
+          <div className="text-center mb-12">
+              <h2 className="text-4xl font-extrabold text-gray-900 tracking-tight mb-4">Welcome Back, {currentUser?.username}</h2>
+              <p className="text-lg text-gray-500 max-w-2xl mx-auto">Select a tool to manage your outreach, relationships, campaigns, or time tracking.</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Super Admin Card */}
+              {currentUser?.id === 'master-admin' && (
+                   <HubCard 
+                      title="Organization Admin" 
+                      description="Manage tenants, create new organizations, and switch contexts."
+                      icon={<BriefcaseIcon className="h-8 w-8" />}
+                      onClick={() => setView('super-admin')}
+                      colorClass="bg-gradient-to-r from-gray-800 to-black"
+                  />
+              )}
+
+              {hasAccess('search') && (
+                  <HubCard 
+                      title="Outreach Finder" 
+                      description="Discover new prospects using AI-powered search across Google Maps, Facebook, and LinkedIn."
+                      icon={<SearchIcon className="h-8 w-8" />}
+                      onClick={() => setView('search')}
+                      colorClass="bg-gradient-to-r from-blue-500 to-cyan-500"
+                  />
+              )}
+              {hasAccess('crm-list') && (
+                  <HubCard 
+                      title="CRM Pipeline" 
+                      description="Manage your leads, track interactions, and move prospects through your sales funnel."
+                      icon={<BriefcaseIcon className="h-8 w-8" />}
+                      onClick={() => setView('crm-list')}
+                      colorClass="bg-gradient-to-r from-indigo-500 to-purple-500"
+                  />
+              )}
+              {hasAccess('email-campaign') && (
+                  <HubCard 
+                      title="Email Campaigns" 
+                      description="Compose personalized cold emails, manage templates, and track sent messages."
+                      icon={<InboxIcon className="h-8 w-8" />}
+                      onClick={() => setView('email-campaign')}
+                      colorClass="bg-gradient-to-r from-pink-500 to-rose-500"
+                  />
+              )}
+              {hasAccess('time-tracking') && (
+                  <HubCard 
+                      title="Time Tracking" 
+                      description="Log work hours, manage timesheets, book time off, and process payroll."
+                      icon={<ClockIcon className="h-8 w-8" />}
+                      onClick={() => setView('time-tracking')}
+                      colorClass="bg-gradient-to-r from-amber-500 to-orange-500"
+                  />
+              )}
+              {hasAccess('invoicing') && (
+                  <HubCard 
+                      title="Invoicing & Inventory" 
+                      description="Create professional invoices, manage inventory, and share via WhatsApp/Email."
+                      icon={<DocumentTextIcon className="h-8 w-8" />}
+                      onClick={() => setView('invoicing')}
+                      colorClass="bg-gradient-to-r from-teal-500 to-emerald-500"
+                  />
+              )}
+              {currentUser?.role === 'admin' && (
+                  <HubCard 
+                      title="User Management" 
+                      description="Add new team members, manage roles, and handle access permissions."
+                      icon={<UserIcon className="h-8 w-8" />}
+                      onClick={() => setView('users')}
+                      colorClass="bg-gradient-to-r from-gray-600 to-gray-800"
+                  />
+              )}
+          </div>
+      </div>
+  );
+
   return (
     <React.Fragment>
-      <header className="sticky top-0 z-50 glass-header shadow-sm">
+      <header className="sticky top-0 z-50 glass-header shadow-sm print:hidden">
         <div className="container mx-auto px-4 py-3 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
-             <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg shadow-indigo-200">
-                   <span className="text-white font-bold text-lg">R</span>
+             <div className="flex items-center gap-3 cursor-pointer" onClick={() => setView('hub')}>
+                <div className="w-10 h-10 rounded-xl shadow-lg shadow-indigo-200 flex items-center justify-center overflow-hidden">
+                   <LeadexisLogo className="w-full h-full" />
                 </div>
                 <div>
-                    <h1 className="text-xl font-bold text-gray-900 tracking-tight leading-tight">Rit Outreach</h1>
-                    <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Click Zia</p>
+                    <h1 className="text-xl font-bold text-gray-900 tracking-tight leading-tight">Leadexis</h1>
+                    <p className="text-[10px] text-indigo-600 uppercase tracking-widest font-bold">Powered by Clickzia</p>
                 </div>
              </div>
           </div>
 
-          {/* Main Navigation - Now Clean & Light */}
+          {/* Main Navigation */}
           <nav className="flex bg-gray-100/50 p-1 rounded-xl border border-gray-200 backdrop-blur-sm w-full md:w-auto overflow-x-auto no-scrollbar">
             <button 
-                onClick={() => setView('search')}
-                className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${view === 'search' ? 'bg-white text-indigo-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50'}`}
+                onClick={() => setView('hub')}
+                className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-2 ${view === 'hub' ? 'bg-white text-indigo-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50'}`}
             >
-                Search Results
+                <GridIcon className="h-4 w-4" /> Apps
             </button>
-            <button 
-                onClick={() => setView(view === 'crm-detail' ? 'crm-detail' : 'crm-list')}
-                className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all relative whitespace-nowrap ${view.startsWith('crm') ? 'bg-white text-indigo-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50'}`}
-            >
-                My CRM
-                {crmContacts.length > 0 && <span className="absolute top-1.5 right-1.5 flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-pink-500"></span></span>}
-            </button>
-            <button 
-                onClick={() => setView('email-campaign')}
-                className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-2 ${view === 'email-campaign' ? 'bg-white text-indigo-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50'}`}
-            >
-                <InboxIcon className="h-4 w-4" /> Email
-            </button>
-            <button 
-                onClick={() => setView('time-tracking')}
-                className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-2 ${view === 'time-tracking' ? 'bg-white text-indigo-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50'}`}
-            >
-                <ClockIcon className="h-4 w-4" /> Time
-            </button>
-            {currentUser?.role === 'admin' && (
-                <button 
-                    onClick={() => setView('users')}
-                    className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${view === 'users' ? 'bg-white text-indigo-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50'}`}
+            
+            {currentUser?.id === 'master-admin' && (
+                 <button 
+                    onClick={() => setView('super-admin')}
+                    className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${view === 'super-admin' ? 'bg-white text-indigo-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50'}`}
                 >
-                    Users
+                    Organizations
+                </button>
+            )}
+            {hasAccess('search') && (
+                <button 
+                    onClick={() => setView('search')}
+                    className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${view === 'search' ? 'bg-white text-indigo-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50'}`}
+                >
+                    Outreach
+                </button>
+            )}
+            {hasAccess('crm-list') && (
+                <button 
+                    onClick={() => setView(view === 'crm-detail' ? 'crm-detail' : 'crm-list')}
+                    className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all relative whitespace-nowrap ${view.startsWith('crm') ? 'bg-white text-indigo-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50'}`}
+                >
+                    CRM
+                    {crmContacts.length > 0 && <span className="absolute top-1.5 right-1.5 flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-pink-500"></span></span>}
+                </button>
+            )}
+            {hasAccess('email-campaign') && (
+                <button 
+                    onClick={() => setView('email-campaign')}
+                    className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-2 ${view === 'email-campaign' ? 'bg-white text-indigo-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50'}`}
+                >
+                    Email
+                </button>
+            )}
+            {hasAccess('time-tracking') && (
+                <button 
+                    onClick={() => setView('time-tracking')}
+                    className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-2 ${view === 'time-tracking' ? 'bg-white text-indigo-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50'}`}
+                >
+                    Time
+                </button>
+            )}
+            {hasAccess('invoicing') && (
+                <button 
+                    onClick={() => setView('invoicing')}
+                    className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-2 ${view === 'invoicing' ? 'bg-white text-indigo-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50'}`}
+                >
+                    Invoices
                 </button>
             )}
           </nav>
@@ -500,9 +629,10 @@ export function MainApp() {
               <div className="flex items-center text-gray-600 text-sm mr-2 bg-white px-3 py-1.5 rounded-full border border-gray-200 shadow-sm">
                 <UserIcon className="h-4 w-4 mr-2 text-indigo-500" />
                 <span className="font-medium">{currentUser.username}</span>
+                {currentUser.id === 'master-admin' && <span className="ml-2 text-[10px] bg-black text-white px-1.5 rounded uppercase font-bold">Master</span>}
               </div>
             )}
-            <button onClick={() => setIsSettingsModalOpen(true)} className="text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 p-2 rounded-full transition-all" title="Settings">
+            <button onClick={() => setIsSettingsModalOpen(true)} className="text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 p-2 rounded-full transition-all" title="Global Settings">
               <SettingsIcon />
             </button>
             <button onClick={logout} className="text-sm font-medium text-red-500 hover:text-red-700 px-3 py-1.5 hover:bg-red-50 rounded-lg transition-all">
@@ -512,13 +642,18 @@ export function MainApp() {
         </div>
       </header>
       
-      <div className="container mx-auto p-4 md:p-6 max-w-6xl">
-          {error && <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-4 rounded-xl mb-6 shadow-sm" role="alert">{error}</div>}
+      <div className="container mx-auto p-4 md:p-6 max-w-6xl print:max-w-none print:p-0">
+          {error && <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-4 rounded-xl mb-6 shadow-sm print:hidden" role="alert">{error}</div>}
 
           <section className="min-h-[500px] animate-fadeIn">
             
-            {/* --- SEARCH VIEW --- */}
-            {view === 'search' && (
+            {view === 'hub' && renderHub()}
+
+            {view === 'super-admin' && currentUser?.id === 'master-admin' && (
+                <SuperAdminDashboard />
+            )}
+
+            {view === 'search' && hasAccess('search') && (
                   <>
                     <div className="mb-8">
                          <SearchForm onSearch={handleSearch} isLoading={isLoading || isLoadingMore} />
@@ -562,8 +697,7 @@ export function MainApp() {
                   </>
             )}
             
-            {/* --- CRM LIST VIEW --- */}
-            {view === 'crm-list' && (
+            {view === 'crm-list' && hasAccess('crm-list') && (
                 <>
                     <div className="flex justify-between items-center mb-6">
                         <h2 className="text-3xl font-bold text-gray-900">My Pipeline</h2>
@@ -584,8 +718,7 @@ export function MainApp() {
                 </>
             )}
 
-            {/* --- CRM DETAIL VIEW --- */}
-            {view === 'crm-detail' && selectedContactId && (() => {
+            {view === 'crm-detail' && hasAccess('crm-list') && selectedContactId && (() => {
                 const contact = crmContacts.find(c => c.id === selectedContactId);
                 if (!contact) return <div className="text-gray-600 text-center">Contact not found. <button onClick={handleBackToCrmList} className="text-indigo-600 underline">Go Back</button></div>;
                 return (
@@ -605,8 +738,7 @@ export function MainApp() {
                 );
             })()}
             
-            {/* --- EMAIL CAMPAIGN VIEW --- */}
-            {view === 'email-campaign' && (
+            {view === 'email-campaign' && hasAccess('email-campaign') && (
                 <EmailPage 
                     crmContacts={crmContacts} 
                     settings={settings} 
@@ -614,12 +746,14 @@ export function MainApp() {
                 />
             )}
 
-            {/* --- TIME TRACKING VIEW --- */}
-            {view === 'time-tracking' && (
+            {view === 'time-tracking' && hasAccess('time-tracking') && (
                 <TimeTrackingPage />
             )}
+
+            {view === 'invoicing' && hasAccess('invoicing') && (
+                <InvoicePage />
+            )}
             
-            {/* --- USER MANAGEMENT VIEW --- */}
             {view === 'users' && currentUser?.role === 'admin' && (
                <UserManagement crmContacts={crmContacts} onAddUser={() => { setEditingUser(null); setIsUserModalOpen(true); }} onEditUser={(user) => { setEditingUser(user); setIsUserModalOpen(true); }} onRemoveUser={handleRemoveUser} />
             )}

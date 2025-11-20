@@ -132,14 +132,22 @@ export const TimeTrackingPage: React.FC = () => {
         if (!currentUser) return;
         setIsLoading(true);
         try {
+            // Scoped fetching: If Admin, fetch data for all users in the ORG (from users context).
+            // If User, fetch only own data.
+            const orgUserIds = users.map(u => u.id);
+
             // 1. Projects (fetch all, filter in memory for simplicity)
+            // Ideally projects should have organization_id too, but for now createdBy checks work if users are scoped
             const { data: projData } = await supabase.from('projects').select('data');
             if (projData) {
                 const allProjs = projData.map((r: any) => r.data);
-                setProjects(allProjs);
-                // Set default project if none selected
-                if (!selectedProject && allProjs.length > 0) {
-                    const defaultProj = allProjs.find((p: Project) => p.scope === 'global') || allProjs[0];
+                // Filter projects created by org users or global
+                // For robust multi-tenancy, RLS is best, but we filter here:
+                const orgProjs = allProjs.filter((p: Project) => p.scope === 'global' || orgUserIds.includes(p.createdBy));
+                setProjects(orgProjs);
+                
+                if (!selectedProject && orgProjs.length > 0) {
+                    const defaultProj = orgProjs.find((p: Project) => p.scope === 'global') || orgProjs[0];
                     if (defaultProj) setSelectedProject(defaultProj.id);
                 }
             }
@@ -147,27 +155,39 @@ export const TimeTrackingPage: React.FC = () => {
             // 2. Settings
             const { data: settingsData } = await supabase.from('app_settings').select('data').eq('id', 'time_tracking_config').single();
             if (settingsData?.data) {
-                // Merge with default to ensure new props like workConfig exist if db data is old
                 setAdminSettings({ ...DEFAULT_SETTINGS, ...settingsData.data });
             }
 
             // 3. Time Entries
             const entryQuery = supabase.from('time_entries').select('data');
-            if (currentUser.role !== 'admin') entryQuery.eq('user_id', currentUser.id);
+            if (currentUser.role !== 'admin') {
+                entryQuery.eq('user_id', currentUser.id);
+            } else {
+                // Admin sees all org users
+                entryQuery.in('user_id', orgUserIds);
+            }
             
             const { data: entryData } = await entryQuery;
             if (entryData) setEntries(entryData.map((r: any) => r.data));
 
             // 4. Leave Requests
             const leaveQuery = supabase.from('leave_requests').select('data');
-            if (currentUser.role !== 'admin') leaveQuery.eq('user_id', currentUser.id);
+            if (currentUser.role !== 'admin') {
+                leaveQuery.eq('user_id', currentUser.id);
+            } else {
+                leaveQuery.in('user_id', orgUserIds);
+            }
             
             const { data: leaveData } = await leaveQuery;
             if (leaveData) setLeaveRequests(leaveData.map((r: any) => r.data));
 
             // 5. Weekly Timesheets
             const weekQuery = supabase.from('weekly_timesheets').select('data');
-            if (currentUser.role !== 'admin') weekQuery.eq('user_id', currentUser.id);
+            if (currentUser.role !== 'admin') {
+                weekQuery.eq('user_id', currentUser.id);
+            } else {
+                weekQuery.in('user_id', orgUserIds);
+            }
             
             const { data: weekData } = await weekQuery;
             if (weekData) setWeeklySubmissions(weekData.map((r: any) => r.data));
@@ -185,7 +205,7 @@ export const TimeTrackingPage: React.FC = () => {
 
     useEffect(() => {
         fetchData();
-    }, [currentUser, activeTab]);
+    }, [currentUser, activeTab, users]); // Added users dependency to re-fetch when auth context loads users
 
     useEffect(() => {
         // Set default admin user selection if not set

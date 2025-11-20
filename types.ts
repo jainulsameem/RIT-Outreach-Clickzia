@@ -67,11 +67,19 @@ export interface Activity {
 
 export type UserRole = 'admin' | 'user';
 
+export interface Organization {
+  id: string;
+  name: string;
+  plan: string;
+}
+
 export interface User {
   id: string;
   username: string;
   role: UserRole;
   password?: string;
+  organizationId?: string;
+  allowedTools?: string[]; // Array of tool IDs e.g. ['search', 'crm-list']
 }
 
 export interface CrmContact extends Business {
@@ -163,4 +171,58 @@ export interface TimeAdminSettings {
       startDay: number; // 0 = Sunday, 1 = Monday, ... 6 = Saturday
       daysPerWeek: number; // 1 to 7
   };
+}
+
+// --- INVOICING & INVENTORY TYPES ---
+
+export interface Product {
+    id: string;
+    name: string;
+    description?: string;
+    price: number;
+    type: 'product' | 'service';
+    stock?: number; // Only relevant for 'product'
+    sku?: string;
+}
+
+export interface InvoiceItem {
+    id: string;
+    productId?: string; // If linked to inventory
+    description: string;
+    quantity: number;
+    price: number;
+    total: number;
+}
+
+export interface Invoice {
+    id: string;
+    number: string; // e.g. INV-001
+    customerId?: string;
+    customerName: string;
+    customerEmail?: string;
+    customerPhone?: string;
+    customerAddress?: string;
+    date: string; // YYYY-MM-DD
+    dueDate: string; // YYYY-MM-DD
+    items: InvoiceItem[];
+    subtotal: number;
+    taxRate: number;
+    taxAmount: number;
+    total: number;
+    status: 'draft' | 'pending' | 'paid' | 'overdue';
+    notes?: string;
+    createdAt: string;
+}
+
+export interface InvoiceSettings {
+    organizationId: string;
+    companyName: string;
+    companyAddress: string;
+    companyEmail: string;
+    companyPhone: string;
+    companyWebsite: string;
+    logoUrl: string;
+    taxRate: number;
+    currency: string;
+    nextInvoiceNumber: number;
 }

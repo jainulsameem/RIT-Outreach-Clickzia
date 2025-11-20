@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import type { User, UserRole } from '../types';
 import { CloseIcon } from './icons';
@@ -10,14 +11,30 @@ interface AddEditUserModalProps {
     userToEdit: User | null;
 }
 
+const AVAILABLE_TOOLS = [
+    { id: 'search', label: 'Outreach Finder' },
+    { id: 'crm-list', label: 'CRM Pipeline' },
+    { id: 'email-campaign', label: 'Email Campaigns' },
+    { id: 'time-tracking', label: 'Time Tracking' },
+    { id: 'invoicing', label: 'Invoicing & Inventory' },
+];
+
 export const AddEditUserModal: React.FC<AddEditUserModalProps> = ({ isOpen, onClose, onSave, userToEdit }) => {
     const [user, setUser] = useState<Partial<User>>({});
+    const [selectedTools, setSelectedTools] = useState<string[]>(['hub']);
     const [error, setError] = useState('');
 
     useEffect(() => {
         if (isOpen) {
             setError('');
-            setUser(userToEdit ? { ...userToEdit } : { username: '', role: 'user', password: '' });
+            if (userToEdit) {
+                setUser({ ...userToEdit });
+                // Ensure 'hub' is always there, default others if missing
+                setSelectedTools(userToEdit.allowedTools || ['hub', 'search', 'crm-list', 'email-campaign', 'time-tracking', 'invoicing']);
+            } else {
+                setUser({ username: '', role: 'user', password: '' });
+                setSelectedTools(['hub', 'search', 'crm-list', 'email-campaign', 'time-tracking', 'invoicing']);
+            }
         }
     }, [isOpen, userToEdit]);
 
@@ -32,7 +49,11 @@ export const AddEditUserModal: React.FC<AddEditUserModalProps> = ({ isOpen, onCl
              setError('Password is required for new users.');
              return;
         }
-        onSave(user as User);
+        
+        // Ensure hub is included
+        const finalTools = Array.from(new Set([...selectedTools, 'hub']));
+        
+        onSave({ ...user, allowedTools: finalTools } as User);
         onClose();
     };
 
@@ -40,11 +61,21 @@ export const AddEditUserModal: React.FC<AddEditUserModalProps> = ({ isOpen, onCl
         setUser(prev => ({ ...prev, [field]: value }));
     };
 
+    const toggleTool = (toolId: string) => {
+        setSelectedTools(prev => {
+            if (prev.includes(toolId)) {
+                return prev.filter(t => t !== toolId);
+            } else {
+                return [...prev, toolId];
+            }
+        });
+    };
+
     const isEditing = !!userToEdit;
 
     return (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity">
-            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md m-4 transform transition-all border border-gray-100">
+            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md m-4 transform transition-all border border-gray-100 max-h-[90vh] overflow-y-auto custom-scrollbar">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-2xl font-bold text-gray-900">{isEditing ? 'Edit User' : 'Add New User'}</h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
@@ -87,6 +118,24 @@ export const AddEditUserModal: React.FC<AddEditUserModalProps> = ({ isOpen, onCl
                             placeholder={isEditing ? 'Leave blank to keep current' : ''}
                         />
                     </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Allowed Tools</label>
+                        <div className="space-y-2 bg-gray-50 p-3 rounded-xl border border-gray-100">
+                            {AVAILABLE_TOOLS.map(tool => (
+                                <label key={tool.id} className="flex items-center cursor-pointer">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={selectedTools.includes(tool.id)}
+                                        onChange={() => toggleTool(tool.id)}
+                                        className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300"
+                                    />
+                                    <span className="ml-2 text-sm text-gray-700">{tool.label}</span>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+
                     {error && <p className="text-sm text-red-500 bg-red-50 p-2 rounded border border-red-100">{error}</p>}
                 </div>
                 <div className="mt-8 flex justify-end">
