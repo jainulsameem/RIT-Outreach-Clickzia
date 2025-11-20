@@ -4,6 +4,7 @@ import { supabase } from '../services/supabaseClient';
 import type { Organization } from '../types';
 import { BriefcaseIcon, PlusIcon, CheckIcon, UserIcon, TrashIcon } from './icons';
 import { useAuth } from '../context/AuthContext';
+import { hashPassword } from '../services/security';
 
 export const SuperAdminDashboard: React.FC = () => {
     const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -42,42 +43,47 @@ export const SuperAdminDashboard: React.FC = () => {
         }
 
         setIsLoading(true);
-        const newOrgId = `org-${Date.now()}`;
-        
-        // 1. Create Organization
-        const { error: orgError } = await supabase.from('organizations').insert({
-            id: newOrgId,
-            name: newOrgName.trim(),
-            plan: newOrgPlan
-        });
+        try {
+            const newOrgId = `org-${Date.now()}`;
+            
+            // 1. Create Organization
+            const { error: orgError } = await supabase.from('organizations').insert({
+                id: newOrgId,
+                name: newOrgName.trim(),
+                plan: newOrgPlan
+            });
 
-        if (orgError) {
-            alert('Error creating organization: ' + orgError.message);
+            if (orgError) {
+                throw new Error('Error creating organization: ' + orgError.message);
+            }
+
+            // 2. Create Initial Admin User for this Org (WITH HASHED PASSWORD)
+            const hashedPassword = await hashPassword(adminPassword.trim());
+            
+            const { error: userError } = await supabase.from('app_users').insert({
+                id: `user-${Date.now()}`,
+                username: adminUsername.trim(),
+                password: hashedPassword,
+                role: 'admin',
+                organization_id: newOrgId,
+                allowed_tools: ['hub', 'search', 'crm-list', 'email-campaign', 'time-tracking'] // Full access for admin
+            });
+
+            if (userError) {
+                alert('Organization created, but failed to create Admin user: ' + userError.message);
+            } else {
+                setNewOrgName('');
+                setAdminUsername('');
+                setAdminPassword('');
+                setIsCreating(false);
+                fetchOrganizations();
+                alert('Organization and Admin user created successfully!');
+            }
+        } catch (err) {
+             alert(err instanceof Error ? err.message : 'An unexpected error occurred');
+        } finally {
             setIsLoading(false);
-            return;
         }
-
-        // 2. Create Initial Admin User for this Org
-        const { error: userError } = await supabase.from('app_users').insert({
-            id: `user-${Date.now()}`,
-            username: adminUsername.trim(),
-            password: adminPassword.trim(),
-            role: 'admin',
-            organization_id: newOrgId,
-            allowed_tools: ['hub', 'search', 'crm-list', 'email-campaign', 'time-tracking'] // Full access for admin
-        });
-
-        if (userError) {
-            alert('Organization created, but failed to create Admin user: ' + userError.message);
-        } else {
-            setNewOrgName('');
-            setAdminUsername('');
-            setAdminPassword('');
-            setIsCreating(false);
-            fetchOrganizations();
-            alert('Organization and Admin user created successfully!');
-        }
-        setIsLoading(false);
     };
 
     const handleDeleteOrg = async (orgId: string, orgName: string) => {

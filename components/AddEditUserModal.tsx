@@ -1,8 +1,8 @@
 
-
 import React, { useState, useEffect } from 'react';
 import type { User, UserRole } from '../types';
 import { CloseIcon } from './icons';
+import { hashPassword } from '../services/security';
 
 interface AddEditUserModalProps {
     isOpen: boolean;
@@ -22,17 +22,20 @@ const AVAILABLE_TOOLS = [
 export const AddEditUserModal: React.FC<AddEditUserModalProps> = ({ isOpen, onClose, onSave, userToEdit }) => {
     const [user, setUser] = useState<Partial<User>>({});
     const [selectedTools, setSelectedTools] = useState<string[]>(['hub']);
+    const [inputPassword, setInputPassword] = useState('');
     const [error, setError] = useState('');
+    const [isProcessing, setIsProcessing] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
             setError('');
+            setInputPassword('');
+            setIsProcessing(false);
             if (userToEdit) {
                 setUser({ ...userToEdit });
-                // Ensure 'hub' is always there, default others if missing
                 setSelectedTools(userToEdit.allowedTools || ['hub', 'search', 'crm-list', 'email-campaign', 'time-tracking', 'invoicing']);
             } else {
-                setUser({ username: '', role: 'user', password: '' });
+                setUser({ username: '', role: 'user' });
                 setSelectedTools(['hub', 'search', 'crm-list', 'email-campaign', 'time-tracking', 'invoicing']);
             }
         }
@@ -40,21 +43,41 @@ export const AddEditUserModal: React.FC<AddEditUserModalProps> = ({ isOpen, onCl
 
     if (!isOpen) return null;
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!user.username || !user.role) {
             setError('Username and role are required.');
             return;
         }
-        if (!userToEdit && !user.password) {
+        if (!userToEdit && !inputPassword) {
              setError('Password is required for new users.');
              return;
         }
         
-        // Ensure hub is included
-        const finalTools = Array.from(new Set([...selectedTools, 'hub']));
-        
-        onSave({ ...user, allowedTools: finalTools } as User);
-        onClose();
+        setIsProcessing(true);
+
+        try {
+            // Handle Password Hashing
+            let finalPassword = user.password;
+            if (inputPassword) {
+                finalPassword = await hashPassword(inputPassword);
+            }
+
+            // Ensure hub is included
+            const finalTools = Array.from(new Set([...selectedTools, 'hub']));
+            
+            const userToSave = { 
+                ...user, 
+                password: finalPassword,
+                allowedTools: finalTools 
+            } as User;
+            
+            onSave(userToSave);
+            onClose();
+        } catch (e) {
+            setError('Error processing password security.');
+        } finally {
+            setIsProcessing(false);
+        }
     };
 
     const handleChange = (field: keyof User, value: any) => {
@@ -112,8 +135,8 @@ export const AddEditUserModal: React.FC<AddEditUserModalProps> = ({ isOpen, onCl
                         <input
                             type="password"
                             id="password"
-                            value={user.password || ''}
-                            onChange={(e) => handleChange('password', e.target.value)}
+                            value={inputPassword}
+                            onChange={(e) => setInputPassword(e.target.value)}
                             className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"
                             placeholder={isEditing ? 'Leave blank to keep current' : ''}
                         />
@@ -141,9 +164,10 @@ export const AddEditUserModal: React.FC<AddEditUserModalProps> = ({ isOpen, onCl
                 <div className="mt-8 flex justify-end">
                     <button
                         onClick={handleSave}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-indigo-200 transition-all"
+                        disabled={isProcessing}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-indigo-200 transition-all disabled:opacity-50"
                     >
-                        Save User
+                        {isProcessing ? 'Securing...' : 'Save User'}
                     </button>
                 </div>
             </div>

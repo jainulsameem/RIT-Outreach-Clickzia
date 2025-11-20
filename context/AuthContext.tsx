@@ -2,10 +2,12 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { User } from '../types';
 import { supabase } from '../services/supabaseClient';
+import { hashPassword } from '../services/security';
 
 // Master admin credentials (fallback/seed)
 const MASTER_ADMIN_USERNAME = 'Sameem';
-const MASTER_ADMIN_PASSWORD = 'nazia123!';
+// Note: This plain text password is NOT stored. It's only used to generate the initial hash if the DB is empty.
+const MASTER_ADMIN_DEFAULT_PASS = 'nazia123!'; 
 const MASTER_ADMIN_ID = 'master-admin';
 const DEFAULT_ORG_ID = 'org-default';
 
@@ -59,33 +61,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     useEffect(() => {
         const storedUser = localStorage.getItem('currentUser');
         if (storedUser) {
-            const user = JSON.parse(storedUser);
-            setCurrentUser(user);
-            if (user.organizationId) {
-                fetchOrgUsers(user.organizationId);
+            try {
+                const user = JSON.parse(storedUser);
+                setCurrentUser(user);
+                if (user.organizationId) {
+                    fetchOrgUsers(user.organizationId);
+                }
+            } catch (e) {
+                console.error("Failed to parse stored user");
+                localStorage.removeItem('currentUser');
             }
         }
     }, []);
 
     const login = async (username: string, password: string): Promise<void> => {
-        // 1. Check for Master Admin Seed Requirement
-        // We attempt to fetch the specific user first
+        const inputHash = await hashPassword(password);
+
+        // 1. Attempt to fetch user by Username
         let { data: user, error } = await supabase
             .from('app_users')
             .select('*')
             .eq('username', username)
-            .eq('password', password)
             .maybeSingle();
 
-        // If no user found, check if DB is empty (first run)
+        // 2. Check for Master Admin Seed Requirement (First Run Only)
         if (!user) {
             const { count } = await supabase.from('app_users').select('*', { count: 'exact', head: true });
-            if (count === 0 && username === MASTER_ADMIN_USERNAME && password === MASTER_ADMIN_PASSWORD) {
+            // Only seed if DB is completely empty and credentials match hardcoded default
+            if (count === 0 && username === MASTER_ADMIN_USERNAME && password === MASTER_ADMIN_DEFAULT_PASS) {
                  // Seed Master Admin & Default Org
+                 const masterAdminHash = await hashPassword(MASTER_ADMIN_DEFAULT_PASS);
                  const masterAdmin: any = {
                     id: MASTER_ADMIN_ID,
                     username: MASTER_ADMIN_USERNAME,
-                    password: MASTER_ADMIN_PASSWORD,
+                    password: masterAdminHash, // STORED AS HASH
                     role: 'admin',
                     organization_id: DEFAULT_ORG_ID,
                     allowed_tools: DEFAULT_TOOLS
@@ -101,12 +110,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const { error: insertError } = await supabase.from('app_users').insert(masterAdmin);
                 if (!insertError) {
                     user = masterAdmin;
+                } else {
+                    console.error("Failed to seed admin", insertError);
                 }
             }
         }
 
         if (!user) {
             throw new Error('Invalid username or password');
+        }
+
+        // 3. Verify Password
+        // Check against hash (Secure) OR plain text (Legacy/Migration support)
+        const isMatch = user.password === inputHash || user.password === password;
+
+        if (!isMatch) {
+             throw new Error('Invalid username or password');
         }
 
         // Normalize user object
@@ -117,7 +136,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
 
         setCurrentUser(loggedInUser);
-        localStorage.setItem('currentUser', JSON.stringify(loggedInUser));
+        
+        // SECURITY: Remove password before storing in LocalStorage
+        const { password: _removedPass, ...safeUser } = loggedInUser;
+        localStorage.setItem('currentUser', JSON.stringify(safeUser));
 
         // Fetch all users in this organization
         if (loggedInUser.organizationId) {
@@ -139,7 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
              const dbUser = {
                  id: user.id,
                  username: user.username,
-                 password: user.password,
+                 password: user.password, // Already hashed by AddEditUserModal
                  role: user.role,
                  organization_id: user.organizationId || currentUser?.organizationId,
                  allowed_tools: user.allowedTools
@@ -158,7 +180,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // 1. Update local state to reflect new org (impersonate context)
             const updatedUser = { ...currentUser, organizationId: orgId };
             setCurrentUser(updatedUser);
-            localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+            
+            // Security: Store without password
+            const { password: _removedPass, ...safeUser } = updatedUser;
+            localStorage.setItem('currentUser', JSON.stringify(safeUser));
 
             // 2. Fetch users for this new org
             await fetchOrgUsers(orgId);
