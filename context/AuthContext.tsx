@@ -87,31 +87,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // 2. Check for Master Admin Seed Requirement (First Run Only)
         if (!user) {
             const { count } = await supabase.from('app_users').select('*', { count: 'exact', head: true });
+            
             // Only seed if DB is completely empty and credentials match hardcoded default
             if (count === 0 && username === MASTER_ADMIN_USERNAME && password === MASTER_ADMIN_DEFAULT_PASS) {
                  // Seed Master Admin & Default Org
                  const masterAdminHash = await hashPassword(MASTER_ADMIN_DEFAULT_PASS);
+                 
+                 // Prepare admin object
                  const masterAdmin: any = {
                     id: MASTER_ADMIN_ID,
                     username: MASTER_ADMIN_USERNAME,
                     password: masterAdminHash, // STORED AS HASH
                     role: 'admin',
-                    organization_id: DEFAULT_ORG_ID,
                     allowed_tools: DEFAULT_TOOLS
                 };
                 
-                // Ensure Org Exists
-                await supabase.from('organizations').upsert({ 
+                // Try to create Default Org
+                const { error: orgError } = await supabase.from('organizations').upsert({ 
                     id: DEFAULT_ORG_ID, 
                     name: 'Default Organization', 
                     plan: 'enterprise' 
                 });
 
+                if (orgError) {
+                    console.warn("Could not seed organization (check if table exists):", orgError.message);
+                    // If Org creation fails, we still try to create user but without org_id link to avoid FK error
+                    // masterAdmin.organization_id = DEFAULT_ORG_ID; // Skip this if org failed
+                } else {
+                    masterAdmin.organization_id = DEFAULT_ORG_ID;
+                }
+
                 const { error: insertError } = await supabase.from('app_users').insert(masterAdmin);
+                
                 if (!insertError) {
                     user = masterAdmin;
                 } else {
-                    console.error("Failed to seed admin", insertError);
+                    console.error("Failed to seed admin:", insertError);
+                    
+                    // Specific RLS Error Handling
+                    if (insertError.message?.includes('row-level security') || insertError.code === '42501') {
+                         throw new Error(`Database Permission Error: RLS is enabled but no policy exists. Run this SQL: create policy "Allow all" on app_users for all using (true) with check (true);`);
+                    }
+
+                    // If insert failed, it might be because 'organization_id' column doesn't exist yet.
+                    // Try one last fallback: insert without extra columns
+                    if (insertError.message?.includes('column') || insertError.message?.includes('organization_id')) {
+                        console.warn("Database schema might be outdated. Attempting legacy admin seed...");
+                        const legacyAdmin = {
+                            id: MASTER_ADMIN_ID,
+                            username: MASTER_ADMIN_USERNAME,
+                            password: masterAdminHash,
+                            role: 'admin'
+                        };
+                        const { error: legacyError } = await supabase.from('app_users').insert(legacyAdmin);
+                        if (!legacyError) {
+                            user = legacyAdmin;
+                        } else {
+                             console.error("Failed to seed admin (legacy attempt):", JSON.stringify(legacyError));
+                             throw new Error(`Failed to initialize admin account: ${legacyError.message}`);
+                        }
+                    } else {
+                        throw new Error(`Failed to initialize admin account: ${insertError.message}`);
+                    }
                 }
             }
         }
