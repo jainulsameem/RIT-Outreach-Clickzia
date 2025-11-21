@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import type { User, UserRole } from '../types';
 import { CloseIcon } from './icons';
@@ -17,6 +18,7 @@ const AVAILABLE_TOOLS = [
     { id: 'email-campaign', label: 'Email Campaigns' },
     { id: 'time-tracking', label: 'Time Tracking' },
     { id: 'invoicing', label: 'Invoicing & Inventory' },
+    { id: 'projects', label: 'Project Management' },
 ];
 
 export const AddEditUserModal: React.FC<AddEditUserModalProps> = ({ isOpen, onClose, onSave, userToEdit }) => {
@@ -33,10 +35,10 @@ export const AddEditUserModal: React.FC<AddEditUserModalProps> = ({ isOpen, onCl
             setIsProcessing(false);
             if (userToEdit) {
                 setUser({ ...userToEdit });
-                setSelectedTools(userToEdit.allowedTools || ['hub', 'search', 'crm-list', 'email-campaign', 'time-tracking', 'invoicing']);
+                setSelectedTools(userToEdit.allowedTools || ['hub', 'search', 'crm-list', 'email-campaign', 'time-tracking', 'invoicing', 'projects']);
             } else {
                 setUser({ username: '', role: 'user' });
-                setSelectedTools(['hub', 'search', 'crm-list', 'email-campaign', 'time-tracking', 'invoicing']);
+                setSelectedTools(['hub', 'search', 'crm-list', 'email-campaign', 'time-tracking', 'invoicing', 'projects']);
             }
         }
     }, [isOpen, userToEdit]);

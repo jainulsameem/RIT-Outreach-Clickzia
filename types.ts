@@ -114,14 +114,40 @@ export interface SearchParams {
   numberOfResults: number;
 }
 
-// --- TIME TRACKING TYPES ---
+// --- CRM SETTINGS ---
+export interface CrmConfig {
+    leadSources: string[]; // e.g. ['Referral', 'Webinar', 'Cold Call']
+    defaultAssignee: string; // userId or ''
+    autoArchiveDays: number; // 0 to disable
+}
+
+// --- TIME TRACKING & PROJECT MANAGEMENT TYPES ---
 
 export interface Project {
   id: string;
   name: string;
+  description?: string;
+  clientName?: string;
   color: string;
   scope: 'global' | 'personal';
   createdBy: string;
+  status?: 'active' | 'completed' | 'archived';
+}
+
+export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'done';
+export type TaskPriority = 'low' | 'medium' | 'high';
+
+export interface Task {
+    id: string;
+    projectId: string;
+    title: string;
+    description?: string;
+    status: TaskStatus;
+    priority: TaskPriority;
+    assignedTo?: string; // userId
+    dueDate?: string; // YYYY-MM-DD
+    tags?: string[];
+    createdAt: string;
 }
 
 export interface TimeEntry {
@@ -129,10 +155,11 @@ export interface TimeEntry {
   userId: string;
   projectId: string; // 'break' if it's a break
   taskName: string;
+  taskId?: string; // Link to specific task
   startTime: string; // ISO
   endTime: string | null; // ISO, null if active
   type: 'work' | 'break';
-  status: 'draft' | 'submitted' | 'approved' | 'rejected'; // Deprecated in favor of WeeklyTimesheet status, but kept for individual tracking if needed
+  status: 'draft' | 'submitted' | 'approved' | 'rejected'; 
 }
 
 export interface WeeklyTimesheet {

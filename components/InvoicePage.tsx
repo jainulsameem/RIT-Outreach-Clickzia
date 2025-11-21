@@ -110,7 +110,7 @@ export const InvoicePage: React.FC = () => {
     };
 
     const deleteProduct = async (id: string) => {
-        if (!confirm('Delete this item?')) return;
+        if (!window.confirm('Are you sure you want to delete this item from inventory?')) return;
         setProducts(prev => prev.filter(p => p.id !== id));
         await supabase.from('products').delete().eq('id', id);
     };
@@ -259,6 +259,7 @@ export const InvoicePage: React.FC = () => {
 
     const handleRemoveItem = (itemId: string) => {
          if (!currentInvoice) return;
+         if (!window.confirm("Are you sure you want to remove this item?")) return;
          const newItems = currentInvoice.items.filter(i => i.id !== itemId);
          recalculateTotals(newItems);
     };

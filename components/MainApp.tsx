@@ -13,8 +13,10 @@ import { AddContactModal } from './AddContactModal';
 import { EmailPage } from './EmailPage'; 
 import { TimeTrackingPage } from './TimeTrackingPage'; 
 import { SuperAdminDashboard } from './SuperAdminDashboard'; 
-import { InvoicePage } from './InvoicePage'; // New Import
-import { SettingsIcon, UserIcon, DownloadIcon, PlusIcon, InboxIcon, ClockIcon, GridIcon, SearchIcon, BriefcaseIcon, LeadexisLogo, DocumentTextIcon } from './icons'; 
+import { InvoicePage } from './InvoicePage'; 
+import { ProjectManagementPage } from './ProjectManagementPage'; 
+import { CrmSettingsModal } from './CrmSettingsModal';
+import { SettingsIcon, UserIcon, DownloadIcon, PlusIcon, InboxIcon, ClockIcon, GridIcon, SearchIcon, BriefcaseIcon, LeadexisLogo, DocumentTextIcon, BoardIcon, AdjustmentsIcon } from './icons'; 
 import { useGeolocation } from '../hooks/useGeolocation';
 import { useAuth } from '../context/AuthContext';
 import { findBusinesses, findBusinessesOnFacebook, findDecisionMakers } from '../services/geminiService';
@@ -22,7 +24,7 @@ import { supabase } from '../services/supabaseClient';
 import type { Business, Settings, CrmContact, LeadStatus, User, CrmFilters, GroundingChunk, SearchParams } from '../types';
 
 // Updated ViewState
-type ViewState = 'hub' | 'search' | 'crm-list' | 'crm-detail' | 'users' | 'email-campaign' | 'time-tracking' | 'super-admin' | 'invoicing';
+type ViewState = 'hub' | 'search' | 'crm-list' | 'crm-detail' | 'users' | 'email-campaign' | 'time-tracking' | 'super-admin' | 'invoicing' | 'projects';
 
 export function MainApp() {
   const [view, setView] = useState<ViewState>('hub'); 
@@ -50,6 +52,7 @@ export function MainApp() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
 
   const [isAddContactModalOpen, setIsAddContactModalOpen] = useState(false);
+  const [isCrmSettingsModalOpen, setIsCrmSettingsModalOpen] = useState(false);
 
   const [filters, setFilters] = useState<CrmFilters>({
     status: 'All',
@@ -71,24 +74,72 @@ export function MainApp() {
       return currentUser.allowedTools?.includes(toolId) ?? false;
   };
 
-  // Load CRM Contacts from Supabase
+  // Load CRM Contacts from Supabase AND Facebook Leads
   useEffect(() => {
-    const loadContacts = async () => {
+    const loadContactsAndLeads = async () => {
         if (!currentUser) return;
         try {
+            // 1. Fetch Existing CRM Contacts
             let query = supabase.from('crm_contacts').select('*');
-            const { data, error } = await query;
-            if (error) {
-                console.error("Error loading contacts from Supabase:", JSON.stringify(error, null, 2));
-            } else if (data) {
-                const loadedContacts = data.map((row: any) => row.data);
-                setCrmContacts(loadedContacts);
+            const { data: contactsData, error: contactsError } = await query;
+            
+            let loadedContacts: CrmContact[] = [];
+            if (contactsData) {
+                loadedContacts = contactsData.map((row: any) => row.data);
             }
+
+            // 2. Fetch Incoming Facebook Leads
+            // We only fetch leads that aren't already 'claimed' or moved into the CRM contacts via ID check
+            // Note: In a real app, you might use a separate 'processed' flag in the leads table.
+            // Here we simply fetch all and merge in memory for the UI.
+            const { data: leadsData, error: leadsError } = await supabase.from('leads').select('*');
+            
+            if (leadsData && leadsData.length > 0) {
+                const incomingLeads: CrmContact[] = leadsData.map((l: any) => {
+                    // Check if this lead is already in our contacts
+                    const exists = loadedContacts.some(c => c.id === l.leadgen_id);
+                    if (exists) return null;
+
+                    // Map DB Lead to CrmContact
+                    return {
+                        id: l.leadgen_id,
+                        name: l.full_name || 'Facebook Lead',
+                        email: l.email,
+                        phone: l.phone_number,
+                        address: 'Facebook Lead Ad',
+                        source: 'facebook',
+                        status: 'New',
+                        activities: [{
+                            id: `created-${l.leadgen_id}`,
+                            type: 'created',
+                            content: `Lead received from Facebook Ad (Form: ${l.form_id})`,
+                            timestamp: l.created_at
+                        }],
+                        customSourceDetails: `Form ID: ${l.form_id}`
+                    } as CrmContact;
+                }).filter((l: any) => l !== null); // Remove nulls (duplicates)
+
+                loadedContacts = [...loadedContacts, ...incomingLeads];
+            }
+
+            setCrmContacts(loadedContacts);
+
+            if (contactsError) console.error("Error loading contacts:", contactsError);
+            
+            if (leadsError) {
+                // 42P01 is PostgreSQL error for "relation does not exist" (table missing)
+                if (leadsError.code === '42P01') {
+                    console.warn("Facebook Leads table not found. Skipping leads sync. Run the SQL script to enable.");
+                } else {
+                    console.error("Error loading leads:", JSON.stringify(leadsError, null, 2));
+                }
+            }
+
         } catch (e) {
             console.error("Unexpected error loading contacts:", e);
         }
     };
-    loadContacts();
+    loadContactsAndLeads();
   }, [currentUser]);
 
   // Load Settings from Supabase
@@ -284,6 +335,8 @@ export function MainApp() {
           setSelectedContactId(null);
       }
       setCrmContacts(prev => prev.filter(c => c.id !== businessId));
+      
+      // If it's a Facebook lead, we technically shouldn't delete from 'leads' table usually, but we can remove from view
       const { error } = await supabase.from('crm_contacts').delete().eq('id', businessId);
       if (error) console.error("Error removing contact:", JSON.stringify(error, null, 2));
   };
@@ -423,7 +476,7 @@ export function MainApp() {
     return (
       <div className="mt-8 p-6 bg-white rounded-xl border border-gray-200 shadow-sm">
         <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-            <svg className="w-5 h-5 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <svg className="w-5 h-5 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             Source Intelligence
         </h4>
         <ul className="space-y-3">
@@ -478,7 +531,7 @@ export function MainApp() {
               <p className="text-lg text-gray-500 max-w-2xl mx-auto">Select a tool to manage your outreach, relationships, campaigns, or time tracking.</p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {/* Super Admin Card */}
               {currentUser?.id === 'master-admin' && (
                    <HubCard 
@@ -515,6 +568,15 @@ export function MainApp() {
                       icon={<InboxIcon className="h-8 w-8" />}
                       onClick={() => setView('email-campaign')}
                       colorClass="bg-gradient-to-r from-pink-500 to-rose-500"
+                  />
+              )}
+              {hasAccess('projects') && (
+                  <HubCard 
+                      title="Project Management" 
+                      description="Organize tasks, track progress with Kanban boards, and log time against projects."
+                      icon={<BoardIcon className="h-8 w-8" />}
+                      onClick={() => setView('projects')}
+                      colorClass="bg-gradient-to-r from-violet-500 to-fuchsia-500"
                   />
               )}
               {hasAccess('time-tracking') && (
@@ -562,7 +624,6 @@ export function MainApp() {
                     <p className="text-[10px] text-indigo-600 uppercase tracking-widest font-bold">Powered by Clickzia</p>
                 </div>
              </div>
-             {/* Mobile User Menu Toggle could go here, but simplified for now */}
              <button onClick={logout} className="md:hidden text-sm font-medium text-red-500 hover:text-red-700 px-3 py-1.5 bg-red-50 rounded-lg">Logout</button>
           </div>
 
@@ -606,6 +667,14 @@ export function MainApp() {
                     className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-2 ${view === 'email-campaign' ? 'bg-white text-indigo-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50'}`}
                 >
                     Email
+                </button>
+            )}
+            {hasAccess('projects') && (
+                <button 
+                    onClick={() => setView('projects')}
+                    className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-2 ${view === 'projects' ? 'bg-white text-indigo-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50'}`}
+                >
+                    Projects
                 </button>
             )}
             {hasAccess('time-tracking') && (
@@ -703,12 +772,20 @@ export function MainApp() {
                 <>
                     <div className="flex justify-between items-center mb-6">
                         <h2 className="text-3xl font-bold text-gray-900">My Pipeline</h2>
-                         <button 
-                            onClick={() => setIsAddContactModalOpen(true)}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-lg shadow-indigo-200 transition-all flex items-center"
-                        >
-                            <PlusIcon className="h-5 w-5 mr-2" /> Add Lead
-                        </button>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setIsCrmSettingsModalOpen(true)}
+                                className="bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg shadow-sm transition-all flex items-center"
+                            >
+                                <AdjustmentsIcon className="h-5 w-5 mr-2 text-gray-500" /> Settings
+                            </button>
+                            <button 
+                                onClick={() => setIsAddContactModalOpen(true)}
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-lg shadow-indigo-200 transition-all flex items-center"
+                            >
+                                <PlusIcon className="h-5 w-5 mr-2" /> Add Lead
+                            </button>
+                        </div>
                     </div>
                     <CrmFilterBar filters={filters} onFiltersChange={setFilters} users={users} currentUser={currentUser} />
                     <CrmList 
@@ -748,6 +825,10 @@ export function MainApp() {
                 />
             )}
 
+            {view === 'projects' && hasAccess('projects') && (
+                <ProjectManagementPage />
+            )}
+
             {view === 'time-tracking' && hasAccess('time-tracking') && (
                 <TimeTrackingPage />
             )}
@@ -764,6 +845,7 @@ export function MainApp() {
       </div>
 
       <SettingsModal isOpen={isSettingsModalOpen} onClose={() => setIsSettingsModalOpen(false)} settings={settings} onSave={saveSettings} />
+      <CrmSettingsModal isOpen={isCrmSettingsModalOpen} onClose={() => setIsCrmSettingsModalOpen(false)} />
       <EmailComposerModal isOpen={isEmailComposerOpen} onClose={() => setIsEmailComposerOpen(false)} business={selectedBusiness} settings={settings} onEmailSent={handleEmailSent} />
       <AddContactModal isOpen={isAddContactModalOpen} onClose={() => setIsAddContactModalOpen(false)} onSave={handleManualAddContact} />
       {isUserModalOpen && <AddEditUserModal isOpen={isUserModalOpen} onClose={() => setIsUserModalOpen(false)} onSave={handleSaveUser} userToEdit={editingUser} />}
