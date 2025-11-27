@@ -149,6 +149,7 @@ export const TimeTrackingPage: React.FC = () => {
             if (projData) {
                 const allProjs = projData.map((r: any) => r.data);
                 // Filter projects created by org users or global
+                // For robust multi-tenancy, RLS is best, but we filter here:
                 const orgProjs = allProjs.filter((p: Project) => p.scope === 'global' || orgUserIds.includes(p.createdBy));
                 setProjects(orgProjs);
                 
@@ -619,8 +620,10 @@ export const TimeTrackingPage: React.FC = () => {
                 if (req.isHalfDay) return acc + 0.5;
                 const start = new Date(req.startDate);
                 const end = new Date(req.endDate);
-                const days = (end.getTime() - start.getTime()) / (1000 * 3600 * 24) + 1;
-                return acc + days;
+                // Safe Day Calculation
+                const diffTime = Math.abs(end.getTime() - start.getTime());
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; 
+                return acc + diffDays;
             }, 0);
         return Math.max(0, totalAllowed - used);
     };
@@ -1621,7 +1624,7 @@ export const TimeTrackingPage: React.FC = () => {
                                      <input 
                                         type="checkbox" 
                                         checked={leaveForm.isHalfDay} 
-                                        onChange={e => setLeaveForm({...leaveForm, isHalfDay: e.target.checked})}
+                                        onChange={e => setLeaveForm({...leaveForm, isHalfDay: e.target.checked, endDate: e.target.checked ? leaveForm.startDate : leaveForm.endDate})}
                                         className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300"
                                         id="halfDayCheck"
                                      />
@@ -1631,7 +1634,7 @@ export const TimeTrackingPage: React.FC = () => {
                                  <div className="grid grid-cols-2 gap-4">
                                      <div>
                                          <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Start Date</label>
-                                         <input type="date" required value={leaveForm.startDate} onChange={e => setLeaveForm({...leaveForm, startDate: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"/>
+                                         <input type="date" required value={leaveForm.startDate} onChange={e => setLeaveForm({...leaveForm, startDate: e.target.value, endDate: leaveForm.isHalfDay ? e.target.value : leaveForm.endDate})} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"/>
                                      </div>
                                      <div>
                                          <label className="block text-xs font-bold text-gray-500 uppercase mb-1">End Date</label>
