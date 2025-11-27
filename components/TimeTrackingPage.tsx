@@ -128,6 +128,10 @@ export const TimeTrackingPage: React.FC = () => {
         userId: ''
     });
 
+    // Leave Edit State
+    const [isLeaveEditModalOpen, setIsLeaveEditModalOpen] = useState(false);
+    const [editingLeave, setEditingLeave] = useState<Partial<TimeOffRequest>>({});
+
     // --- Supabase Data Loading ---
     const fetchData = async () => {
         if (!currentUser) return;
@@ -145,7 +149,6 @@ export const TimeTrackingPage: React.FC = () => {
             if (projData) {
                 const allProjs = projData.map((r: any) => r.data);
                 // Filter projects created by org users or global
-                // For robust multi-tenancy, RLS is best, but we filter here:
                 const orgProjs = allProjs.filter((p: Project) => p.scope === 'global' || orgUserIds.includes(p.createdBy));
                 setProjects(orgProjs);
                 
@@ -265,7 +268,15 @@ export const TimeTrackingPage: React.FC = () => {
     };
 
     const saveLeaveRequest = async (req: TimeOffRequest) => {
-        setLeaveRequests(prev => [req, ...prev]);
+        setLeaveRequests(prev => {
+            const index = prev.findIndex(r => r.id === req.id);
+            if (index !== -1) {
+                const newArr = [...prev];
+                newArr[index] = req;
+                return newArr;
+            }
+            return [req, ...prev];
+        });
         await supabase.from('leave_requests').upsert({ id: req.id, user_id: req.userId, data: req });
     };
     
@@ -524,17 +535,17 @@ export const TimeTrackingPage: React.FC = () => {
             currentDay.setDate(currentDay.getDate() + i);
             const currentDayStr = formatDateISO(currentDay);
 
-            // Logic: Approved leave (except Unpaid) counts as 8 hours
-            const hasApprovedLeave = leaveRequests.some(req => 
-                req.userId === userId &&
-                req.status === 'approved' &&
-                req.type !== 'Unpaid' && 
-                req.startDate <= currentDayStr &&
-                req.endDate >= currentDayStr
+            const req = leaveRequests.find(r => 
+                r.userId === userId &&
+                r.status === 'approved' &&
+                r.type !== 'Unpaid' && 
+                r.startDate <= currentDayStr &&
+                r.endDate >= currentDayStr
             );
 
-            if (hasApprovedLeave) {
-                leaveHours += 8;
+            if (req) {
+                // If half day, add 4 hours. Else 8.
+                leaveHours += req.isHalfDay ? 4 : 8;
             }
         }
         return leaveHours;
@@ -565,7 +576,7 @@ export const TimeTrackingPage: React.FC = () => {
                 `Your Total: ${totalEffectiveHours.toFixed(2)} hours\n` +
                 `-----------------------------\n` +
                 `Logged Work: ${workedHours.toFixed(2)} hrs\n` +
-                `Leave Credits: ${leaveCreditHours} hrs (8hr per approved day)\n\n` +
+                `Leave Credits: ${leaveCreditHours} hrs (8hr per full day, 4hr per half day)\n\n` +
                 `Please log more time or wait for leave request approval.`
             );
             return;
@@ -597,7 +608,7 @@ export const TimeTrackingPage: React.FC = () => {
     };
 
     // --- Logic: Time Off ---
-    const [leaveForm, setLeaveForm] = useState({ type: 'Casual' as LeaveType, startDate: '', endDate: '', reason: '' });
+    const [leaveForm, setLeaveForm] = useState({ type: 'Casual' as LeaveType, startDate: '', endDate: '', reason: '', isHalfDay: false });
 
     const calculateBalance = (userId: string, type: LeaveType) => {
         if (type === 'Unpaid') return '∞';
@@ -605,6 +616,7 @@ export const TimeTrackingPage: React.FC = () => {
         const used = leaveRequests
             .filter(r => r.userId === userId && r.type === type && r.status === 'approved')
             .reduce((acc, req) => {
+                if (req.isHalfDay) return acc + 0.5;
                 const start = new Date(req.startDate);
                 const end = new Date(req.endDate);
                 const days = (end.getTime() - start.getTime()) / (1000 * 3600 * 24) + 1;
@@ -616,17 +628,22 @@ export const TimeTrackingPage: React.FC = () => {
     const handleBookLeave = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!currentUser) return;
+        
+        // If Half Day is selected, override End Date to equal Start Date
+        const finalEndDate = leaveForm.isHalfDay ? leaveForm.startDate : leaveForm.endDate;
+
         const newRequest: TimeOffRequest = {
             id: `leave-${Date.now()}`,
             userId: currentUser.id,
             type: leaveForm.type,
             startDate: leaveForm.startDate,
-            endDate: leaveForm.endDate,
+            endDate: finalEndDate,
             reason: leaveForm.reason,
-            status: 'pending'
+            status: 'pending',
+            isHalfDay: leaveForm.isHalfDay
         };
         await saveLeaveRequest(newRequest);
-        setLeaveForm({ type: 'Casual', startDate: '', endDate: '', reason: '' });
+        setLeaveForm({ type: 'Casual', startDate: '', endDate: '', reason: '', isHalfDay: false });
         alert('Leave request submitted!');
     };
     
@@ -635,6 +652,31 @@ export const TimeTrackingPage: React.FC = () => {
          if (req) {
              await updateLeaveRequestStatus({ ...req, status: action === 'approve' ? 'approved' : 'rejected' });
          }
+    };
+
+    // --- Admin Edit Leave Logic ---
+    const openLeaveEditModal = (req: TimeOffRequest) => {
+        setEditingLeave(req);
+        setIsLeaveEditModalOpen(true);
+    };
+
+    const handleUpdateLeaveRequest = async () => {
+        if (!editingLeave.id || !editingLeave.userId) return;
+        
+        const updatedReq: TimeOffRequest = {
+            id: editingLeave.id,
+            userId: editingLeave.userId,
+            type: editingLeave.type || 'Casual',
+            startDate: editingLeave.startDate || '',
+            endDate: editingLeave.isHalfDay ? (editingLeave.startDate || '') : (editingLeave.endDate || ''),
+            reason: editingLeave.reason || '',
+            status: editingLeave.status || 'pending',
+            isHalfDay: editingLeave.isHalfDay
+        };
+
+        await saveLeaveRequest(updatedReq);
+        setIsLeaveEditModalOpen(false);
+        setEditingLeave({});
     };
 
 
@@ -691,9 +733,11 @@ export const TimeTrackingPage: React.FC = () => {
 
             if (approvedLeave) {
                 if (approvedLeave.type === 'Unpaid') {
-                    lopDays++;
+                    // If half day unpaid, add 0.5
+                    lopDays += approvedLeave.isHalfDay ? 0.5 : 1;
                 }
                 // If paid leave (Casual, Sick, etc.), day is accounted for.
+                // If half day paid leave, we technically should check for 4h work, but for simplicity here we count it as covered.
                 continue;
             }
 
@@ -1062,6 +1106,84 @@ export const TimeTrackingPage: React.FC = () => {
                         <div className="flex justify-end gap-3 mt-8">
                             <button onClick={() => setIsEntryModalOpen(false)} className="px-4 py-2 text-gray-500 hover:text-gray-800 font-medium transition-colors">Cancel</button>
                             <button onClick={handleSaveManualEntry} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-95">Save Entry</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Admin Edit Leave Modal */}
+            {isLeaveEditModalOpen && (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white p-6 rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md transform transition-all">
+                        <h3 className="text-xl font-bold text-gray-900 mb-6">Edit Leave Request</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">User</label>
+                                <input type="text" disabled value={users.find(u => u.id === editingLeave.userId)?.username || 'Unknown'} className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-3 text-gray-500 outline-none"/>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Type</label>
+                                <select 
+                                    value={editingLeave.type}
+                                    onChange={e => setEditingLeave({...editingLeave, type: e.target.value as LeaveType})}
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                >
+                                    {Object.keys(adminSettings.leaveBalances).map(t => <option key={t} value={t}>{t}</option>)}
+                                </select>
+                            </div>
+                            
+                            <div className="flex items-center gap-2 bg-indigo-50 p-3 rounded-xl border border-indigo-100">
+                                <input 
+                                    type="checkbox" 
+                                    checked={editingLeave.isHalfDay} 
+                                    onChange={e => setEditingLeave({...editingLeave, isHalfDay: e.target.checked, endDate: e.target.checked ? editingLeave.startDate : editingLeave.endDate})}
+                                    className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300"
+                                    id="editHalfDayCheck"
+                                />
+                                <label htmlFor="editHalfDayCheck" className="text-sm font-bold text-indigo-700">Half Day (4 Hours)</label>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Start Date</label>
+                                    <input 
+                                        type="date" 
+                                        value={editingLeave.startDate} 
+                                        onChange={e => setEditingLeave({...editingLeave, startDate: e.target.value, endDate: editingLeave.isHalfDay ? e.target.value : editingLeave.endDate})} 
+                                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">End Date</label>
+                                    <input 
+                                        type="date" 
+                                        value={editingLeave.endDate} 
+                                        onChange={e => setEditingLeave({...editingLeave, endDate: e.target.value})} 
+                                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none disabled:bg-gray-100 disabled:text-gray-400"
+                                        disabled={!!editingLeave.isHalfDay}
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Reason</label>
+                                <textarea value={editingLeave.reason} onChange={e => setEditingLeave({...editingLeave, reason: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none" rows={2}/>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Status</label>
+                                <select 
+                                    value={editingLeave.status}
+                                    onChange={e => setEditingLeave({...editingLeave, status: e.target.value as any})}
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                >
+                                    <option value="pending">Pending</option>
+                                    <option value="approved">Approved</option>
+                                    <option value="rejected">Rejected</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-3 mt-8">
+                            <button onClick={() => setIsLeaveEditModalOpen(false)} className="px-4 py-2 text-gray-500 hover:text-gray-800 font-medium transition-colors">Cancel</button>
+                            <button onClick={handleUpdateLeaveRequest} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-xl shadow-lg shadow-indigo-200 transition-all">Update Request</button>
                         </div>
                     </div>
                 </div>
@@ -1493,6 +1615,19 @@ export const TimeTrackingPage: React.FC = () => {
                                          {Object.keys(adminSettings.leaveBalances).map(t => <option key={t} value={t}>{t}</option>)}
                                      </select>
                                  </div>
+                                 
+                                 {/* Half Day Checkbox */}
+                                 <div className="flex items-center gap-2 bg-indigo-50 p-3 rounded-xl border border-indigo-100">
+                                     <input 
+                                        type="checkbox" 
+                                        checked={leaveForm.isHalfDay} 
+                                        onChange={e => setLeaveForm({...leaveForm, isHalfDay: e.target.checked})}
+                                        className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300"
+                                        id="halfDayCheck"
+                                     />
+                                     <label htmlFor="halfDayCheck" className="text-sm font-bold text-indigo-700">Half Day (4 Hours)</label>
+                                 </div>
+
                                  <div className="grid grid-cols-2 gap-4">
                                      <div>
                                          <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Start Date</label>
@@ -1500,7 +1635,14 @@ export const TimeTrackingPage: React.FC = () => {
                                      </div>
                                      <div>
                                          <label className="block text-xs font-bold text-gray-500 uppercase mb-1">End Date</label>
-                                         <input type="date" required value={leaveForm.endDate} onChange={e => setLeaveForm({...leaveForm, endDate: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"/>
+                                         <input 
+                                            type="date" 
+                                            required 
+                                            value={leaveForm.isHalfDay ? leaveForm.startDate : leaveForm.endDate} 
+                                            onChange={e => setLeaveForm({...leaveForm, endDate: e.target.value})} 
+                                            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none disabled:bg-gray-100 disabled:text-gray-400"
+                                            disabled={leaveForm.isHalfDay}
+                                         />
                                      </div>
                                  </div>
                                  <div>
@@ -1519,8 +1661,11 @@ export const TimeTrackingPage: React.FC = () => {
                                  {leaveRequests.filter(r => r.userId === currentUser?.id).map(req => (
                                      <div key={req.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
                                          <div>
-                                             <span className="font-bold text-gray-800 text-sm block mb-1">{req.type} Leave</span>
-                                             <span className="text-xs text-gray-500">{req.startDate} to {req.endDate}</span>
+                                             <span className="font-bold text-gray-800 text-sm mb-1 flex items-center gap-2">
+                                                 {req.type} Leave 
+                                                 {req.isHalfDay && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 rounded border border-purple-200 uppercase">Half Day</span>}
+                                             </span>
+                                             <span className="text-xs text-gray-500">{req.startDate} {req.isHalfDay ? '' : `to ${req.endDate}`}</span>
                                              <p className="text-xs text-gray-400 mt-1 italic">"{req.reason}"</p>
                                          </div>
                                          <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
@@ -1537,21 +1682,31 @@ export const TimeTrackingPage: React.FC = () => {
                         {/* Admin Approvals */}
                         {currentUser?.role === 'admin' && (
                             <div className="lg:col-span-3 bg-white p-6 rounded-3xl border border-gray-200 shadow-sm border-t-4 border-t-indigo-500">
-                                <h3 className="text-lg font-bold text-gray-900 mb-6">Pending Approvals (Admin)</h3>
+                                <h3 className="text-lg font-bold text-gray-900 mb-6">All Leave Requests (Admin)</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                     {leaveRequests.filter(r => r.status === 'pending').length === 0 && <p className="text-gray-400 italic col-span-2 text-center py-8">No pending requests.</p>}
-                                     {leaveRequests.filter(r => r.status === 'pending').map(req => {
+                                     {leaveRequests.length === 0 && <p className="text-gray-400 italic col-span-2 text-center py-8">No requests found.</p>}
+                                     {leaveRequests.map(req => {
                                          const user = users.find(u => u.id === req.userId);
                                          return (
-                                             <div key={req.id} className="bg-yellow-50 p-4 rounded-2xl border border-yellow-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                             <div key={req.id} className={`p-4 rounded-2xl border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ${req.status === 'pending' ? 'bg-yellow-50 border-yellow-100' : 'bg-gray-50 border-gray-100'}`}>
                                                  <div>
                                                      <p className="font-bold text-gray-900 text-lg">{user?.username}</p>
-                                                     <p className="text-sm font-medium text-yellow-800">{req.type} Leave • {req.startDate} to {req.endDate}</p>
+                                                     <div className="flex flex-wrap gap-2 items-center">
+                                                         <span className="text-sm font-medium text-gray-700">{req.type}</span>
+                                                         {req.isHalfDay && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 rounded border border-purple-200 uppercase font-bold">Half Day</span>}
+                                                         <span className="text-xs text-gray-500">• {req.startDate} {req.isHalfDay ? '' : `to ${req.endDate}`}</span>
+                                                     </div>
                                                      <p className="text-xs text-gray-600 mt-1 italic">"{req.reason}"</p>
+                                                     {req.status !== 'pending' && <span className={`text-[10px] uppercase font-bold mt-2 inline-block px-2 py-0.5 rounded ${req.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{req.status}</span>}
                                                  </div>
                                                  <div className="flex gap-2">
-                                                     <button onClick={() => handleLeaveAction(req.id, 'approve')} className="bg-green-600 text-white p-2 rounded-lg hover:bg-green-700 transition-colors"><CheckIcon className="h-5 w-5" /></button>
-                                                     <button onClick={() => handleLeaveAction(req.id, 'reject')} className="bg-red-500 text-white p-2 rounded-lg hover:bg-red-600 transition-colors"><CancelIcon className="h-5 w-5" /></button>
+                                                     {req.status === 'pending' && (
+                                                         <>
+                                                            <button onClick={() => handleLeaveAction(req.id, 'approve')} className="bg-green-600 text-white p-2 rounded-lg hover:bg-green-700 transition-colors" title="Approve"><CheckIcon className="h-4 w-4" /></button>
+                                                            <button onClick={() => handleLeaveAction(req.id, 'reject')} className="bg-red-500 text-white p-2 rounded-lg hover:bg-red-600 transition-colors" title="Reject"><CancelIcon className="h-4 w-4" /></button>
+                                                         </>
+                                                     )}
+                                                     <button onClick={() => openLeaveEditModal(req)} className="bg-white border border-gray-200 text-gray-500 p-2 rounded-lg hover:text-indigo-600 hover:border-indigo-200 transition-colors" title="Edit Request"><EditIcon className="h-4 w-4" /></button>
                                                  </div>
                                              </div>
                                          );

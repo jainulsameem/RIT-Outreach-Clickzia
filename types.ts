@@ -114,11 +114,33 @@ export interface SearchParams {
   numberOfResults: number;
 }
 
-// --- CRM SETTINGS ---
+// --- CRM SETTINGS & FACEBOOK INTEGRATION ---
+export interface FacebookPage {
+    id: string;
+    name: string;
+    access_token: string;
+}
+
+export interface FacebookForm {
+    id: string;
+    name: string;
+    status: string;
+}
+
+export interface FacebookQuestion {
+    id: string; // e.g. "email" or "custom_question_123"
+    label: string; // e.g. "What is your email?"
+    type: string;
+}
+
 export interface CrmConfig {
     leadSources: string[]; // e.g. ['Referral', 'Webinar', 'Cold Call']
     defaultAssignee: string; // userId or ''
     autoArchiveDays: number; // 0 to disable
+    facebookMappings?: {
+        fbField: string;
+        crmField: 'name' | 'email' | 'phone' | 'address' | 'website' | 'customSourceDetails';
+    }[];
 }
 
 // --- TIME TRACKING & PROJECT MANAGEMENT TYPES ---
@@ -182,6 +204,7 @@ export interface TimeOffRequest {
   endDate: string; // YYYY-MM-DD
   reason: string;
   status: 'pending' | 'approved' | 'rejected';
+  isHalfDay?: boolean;
 }
 
 export interface SalaryConfig {
@@ -239,6 +262,7 @@ export interface Invoice {
     status: 'draft' | 'pending' | 'paid' | 'overdue';
     notes?: string;
     createdAt: string;
+    showDate?: boolean;
 }
 
 export interface InvoiceSettings {

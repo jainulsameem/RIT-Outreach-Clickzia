@@ -1,3 +1,4 @@
+
 import { supabase } from './_utils/supabaseClient.js';
 import { fetchLeadDetails, normalizeLeadData } from './_utils/facebook.js';
 
@@ -36,30 +37,55 @@ export default async function handler(req, res) {
       const body = req.body;
 
       if (body.object === 'page') {
+        
         const processPromises = body.entry.map(async (entry) => {
           const pageId = entry.id;
           const changes = entry.changes || [];
           
+          // 1. Fetch Integration Config for this Page
+          let pageConfig = null;
+          try {
+              const { data, error } = await supabase
+                  .from('facebook_integrations')
+                  .select('access_token, form_mappings, organization_id')
+                  .eq('page_id', pageId)
+                  .single();
+              
+              if (error || !data) {
+                  console.warn(`[Warning] Received lead for Page ID ${pageId} but no integration found in DB.`);
+                  return; 
+              }
+              pageConfig = data;
+          } catch (err) {
+              console.error("DB Error fetching integration:", err);
+              return;
+          }
+
+          const { access_token: pageAccessToken, form_mappings: allFormMappings } = pageConfig;
+
           for (const change of changes) {
             if (change.field === 'leadgen') {
               const value = change.value;
               const leadgenId = value.leadgen_id;
               const formId = value.form_id;
               
-              console.log(`[Processing] LeadGen ID: ${leadgenId}`);
+              console.log(`[Processing] LeadGen ID: ${leadgenId} for Page: ${pageId}`);
 
               try {
-                // A. Fetch from Facebook
-                const leadDetails = await fetchLeadDetails(leadgenId);
+                // 2. Fetch from Facebook using Page-Specific Token
+                const leadDetails = await fetchLeadDetails(leadgenId, pageAccessToken);
 
-                // B. Normalize
-                const dbPayload = normalizeLeadData(leadDetails);
+                // 3. Get Specific Mappings for this Form (if any)
+                const formSpecificMapping = allFormMappings?.[formId] || {};
+
+                // 4. Normalize
+                const dbPayload = normalizeLeadData(leadDetails, formSpecificMapping);
                 dbPayload.page_id = pageId;
                 dbPayload.form_id = formId;
                 dbPayload.ad_id = value.ad_id || null;
                 dbPayload.updated_at = new Date().toISOString();
 
-                // C. Save to Supabase
+                // 5. Save to Supabase
                 const { error } = await supabase
                   .from('leads')
                   .upsert(dbPayload, { onConflict: 'leadgen_id' });
@@ -70,8 +96,6 @@ export default async function handler(req, res) {
 
               } catch (innerError) {
                 console.error(`[Error] Failed processing lead ${leadgenId}:`, innerError.message);
-                // We do NOT throw here to prevent one bad lead from crashing the whole batch
-                // but in a strict system you might want to return 500 to force retry.
               }
             }
           }

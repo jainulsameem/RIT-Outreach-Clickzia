@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { useAuth } from '../context/AuthContext';
@@ -51,6 +52,7 @@ export const InvoicePage: React.FC = () => {
     const [selectedCountryCode, setSelectedCountryCode] = useState('+1');
 
     const orgId = currentUser?.organizationId || 'org-default';
+    const canEditSettings = currentUser?.role === 'admin' || currentUser?.id === 'master-admin';
 
     // Fetch Data
     const fetchData = async () => {
@@ -150,7 +152,8 @@ export const InvoicePage: React.FC = () => {
             taxAmount: 0,
             total: 0,
             status: 'draft',
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            showDate: true // Default to true
         };
         setCurrentInvoice(newInv);
         setActiveTab('builder');
@@ -226,7 +229,8 @@ export const InvoicePage: React.FC = () => {
                      }
                  }
              }
-             // Increment Invoice Number
+             // Increment Invoice Number if this was a new draft turning pending for first time
+             // Or if settings need to move forward. Simple logic: always increment next setting
              const newSettings = { ...settings, nextInvoiceNumber: settings.nextInvoiceNumber + 1 };
              setSettings(newSettings);
              await supabase.from('invoice_settings').upsert({ organization_id: orgId, data: newSettings });
@@ -288,7 +292,7 @@ export const InvoicePage: React.FC = () => {
          window.location.href = `mailto:${invoice.customerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     };
 
-    // --- Render Functions (Converted from Inner Components to avoid remounting) ---
+    // --- Render Functions ---
 
     const renderDashboard = () => {
         const totalRevenue = invoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + i.total, 0);
@@ -431,7 +435,16 @@ export const InvoicePage: React.FC = () => {
                      <div className="flex flex-col md:flex-row justify-between mb-6 gap-4">
                          <div>
                              <h2 className="text-2xl font-bold text-gray-900">New Invoice {currentInvoice.number}</h2>
-                             <p className="text-sm text-gray-500">Date: {currentInvoice.date}</p>
+                             <div className="flex items-center gap-2 mt-2">
+                                 <input 
+                                    type="checkbox" 
+                                    id="showDate"
+                                    checked={currentInvoice.showDate !== false}
+                                    onChange={e => setCurrentInvoice({...currentInvoice, showDate: e.target.checked})}
+                                    className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300"
+                                 />
+                                 <label htmlFor="showDate" className="text-sm text-gray-600 select-none">Include Date & Time in Invoice</label>
+                             </div>
                          </div>
                          <div className="text-right w-full md:w-auto">
                              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Due Date</label>
@@ -562,9 +575,47 @@ export const InvoicePage: React.FC = () => {
                 <style>
                 {`
                     @media print {
-                        body * { visibility: hidden; }
-                        #invoice-print-area, #invoice-print-area * { visibility: visible; }
-                        #invoice-print-area { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0; border: none; box-shadow: none; }
+                        @page { margin: 0; size: auto; }
+                        
+                        /* Reset main layout constraints to prevent clipping */
+                        html, body, #root {
+                            height: auto !important;
+                            overflow: visible !important;
+                            min-height: 0 !important;
+                        }
+
+                        /* Hide all other content */
+                        body * {
+                            visibility: hidden;
+                        }
+
+                        /* Reset transformations that might mess up absolute positioning */
+                        * {
+                            transition: none !important;
+                            transform: none !important;
+                            animation: none !important;
+                        }
+
+                        /* Show invoice print area and its children */
+                        #invoice-print-area, #invoice-print-area * {
+                            visibility: visible;
+                        }
+
+                        /* Position print area absolutely at top left of page */
+                        #invoice-print-area {
+                            position: absolute !important;
+                            left: 0 !important;
+                            top: 0 !important;
+                            width: 100% !important;
+                            margin: 0 !important;
+                            padding: 20px !important;
+                            border: none !important;
+                            box-shadow: none !important;
+                            background: white !important;
+                            z-index: 9999;
+                        }
+
+                        /* Utility to hide specific elements in print view */
                         .print-hidden { display: none !important; }
                     }
                 `}
@@ -584,8 +635,12 @@ export const InvoicePage: React.FC = () => {
                             <div className="text-right">
                                 <h2 className="text-3xl font-light text-indigo-600 mb-2">INVOICE</h2>
                                 <p className="text-gray-600 font-bold"># {currentInvoice.number}</p>
-                                <p className="text-gray-500 text-sm mt-4">Date: {currentInvoice.date}</p>
-                                <p className="text-gray-500 text-sm">Due: {currentInvoice.dueDate}</p>
+                                {currentInvoice.showDate !== false && (
+                                    <>
+                                        <p className="text-gray-500 text-sm mt-4">Date: {currentInvoice.date}</p>
+                                        <p className="text-gray-500 text-sm">Due: {currentInvoice.dueDate}</p>
+                                    </>
+                                )}
                             </div>
                         </div>
 
@@ -679,7 +734,9 @@ export const InvoicePage: React.FC = () => {
                     <button onClick={() => setActiveTab('dashboard')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors whitespace-nowrap ${activeTab === 'dashboard' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>Dashboard</button>
                     <button onClick={() => setActiveTab('invoices')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors whitespace-nowrap ${activeTab === 'invoices' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>Invoices</button>
                     <button onClick={() => setActiveTab('inventory')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors whitespace-nowrap ${activeTab === 'inventory' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>Inventory</button>
-                    <button onClick={() => setActiveTab('settings')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors whitespace-nowrap ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>Settings</button>
+                    {canEditSettings && (
+                        <button onClick={() => setActiveTab('settings')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors whitespace-nowrap ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>Settings</button>
+                    )}
                 </div>
             </div>
 
@@ -736,7 +793,7 @@ export const InvoicePage: React.FC = () => {
                 {activeTab === 'builder' && renderBuilder()}
                 {activeTab === 'viewer' && renderViewer()}
 
-                {activeTab === 'settings' && (
+                {activeTab === 'settings' && canEditSettings && (
                     <div className="animate-fadeIn max-w-2xl mx-auto bg-white p-8 rounded-3xl border border-gray-200 shadow-sm">
                         <h2 className="text-2xl font-bold text-gray-900 mb-6">Organization Settings</h2>
                         <div className="space-y-4">
@@ -773,8 +830,30 @@ export const InvoicePage: React.FC = () => {
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tax Rate %</label><input type="number" value={settings.taxRate} onChange={e => setSettings({...settings, taxRate: Number(e.target.value)})} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"/></div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Currency</label><input type="text" value={settings.currency} onChange={e => setSettings({...settings, currency: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"/></div>
                             </div>
+                            
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Next Invoice Number</label>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-gray-500 font-mono text-sm">INV-</span>
+                                    <input 
+                                        type="number" 
+                                        value={settings.nextInvoiceNumber} 
+                                        onChange={e => setSettings({...settings, nextInvoiceNumber: parseInt(e.target.value)})} 
+                                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+                                    />
+                                </div>
+                                <p className="text-xs text-gray-400 mt-1">The number to use for the next created invoice.</p>
+                            </div>
+
                             <button onClick={saveSettingsConfig} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl mt-4 hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">Save Settings</button>
                         </div>
+                    </div>
+                )}
+                
+                {activeTab === 'settings' && !canEditSettings && (
+                    <div className="text-center py-10 animate-fadeIn">
+                        <p className="text-gray-500 text-lg font-medium">Access Restricted</p>
+                        <p className="text-gray-400 text-sm">Only Organization Admins can modify invoice settings.</p>
                     </div>
                 )}
             </div>

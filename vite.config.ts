@@ -20,6 +20,9 @@ export default defineConfig(({ mode }) => {
   
   // Added user provided Google Client ID
   const googleClientId = env.VITE_GOOGLE_CLIENT_ID || '946355631103-sro9uveki04kjjf1d6d11jrm7vij0bbh.apps.googleusercontent.com';
+  
+  // Facebook App ID
+  const facebookAppId = env.VITE_FACEBOOK_APP_ID || env.FACEBOOK_APP_ID || '';
 
   return {
     plugins: [react()],
@@ -29,6 +32,7 @@ export default defineConfig(({ mode }) => {
       'process.env.SUPABASE_URL': JSON.stringify(supabaseUrl),
       'process.env.SUPABASE_ANON_KEY': JSON.stringify(supabaseKey),
       'process.env.GOOGLE_CLIENT_ID': JSON.stringify(googleClientId),
+      'process.env.FACEBOOK_APP_ID': JSON.stringify(facebookAppId),
     }
   }
 })

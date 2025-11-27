@@ -3,6 +3,7 @@ interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL: string;
   readonly VITE_SUPABASE_ANON_KEY: string;
   readonly VITE_GOOGLE_CLIENT_ID: string;
+  readonly VITE_FACEBOOK_APP_ID: string;
 }
 
 interface ImportMeta {
@@ -15,6 +16,7 @@ declare namespace NodeJS {
     SUPABASE_URL: string;
     SUPABASE_ANON_KEY: string;
     GOOGLE_CLIENT_ID: string;
+    FACEBOOK_APP_ID: string;
   }
 }
 
