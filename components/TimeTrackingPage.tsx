@@ -618,14 +618,21 @@ export const TimeTrackingPage: React.FC = () => {
             .filter(r => r.userId === userId && r.type === type && r.status === 'approved')
             .reduce((acc, req) => {
                 if (req.isHalfDay) return acc + 0.5;
+                
                 const start = new Date(req.startDate);
                 const end = new Date(req.endDate);
-                // Safe Day Calculation
+                // Normalize to noon to avoid DST issues
+                start.setHours(12,0,0,0);
+                end.setHours(12,0,0,0);
+                
                 const diffTime = Math.abs(end.getTime() - start.getTime());
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; 
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
                 return acc + diffDays;
             }, 0);
-        return Math.max(0, totalAllowed - used);
+            
+        const remaining = Math.max(0, totalAllowed - used);
+        // Return string to nicely format decimals
+        return Number.isInteger(remaining) ? remaining.toString() : remaining.toFixed(1);
     };
 
     const handleBookLeave = async (e: React.FormEvent) => {
