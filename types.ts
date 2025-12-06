@@ -206,6 +206,17 @@ export interface TimeOffRequest {
   isHalfDay?: boolean;
 }
 
+export interface Meeting {
+    id: string;
+    title: string;
+    description?: string;
+    startTime: string; // ISO
+    endTime: string; // ISO
+    participants: string[]; // User IDs
+    createdBy: string;
+    organizationId?: string;
+}
+
 export interface SalaryConfig {
     userId: string;
     baseSalary: number; // Monthly

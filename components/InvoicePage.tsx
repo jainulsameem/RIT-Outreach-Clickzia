@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { useAuth } from '../context/AuthContext';
@@ -9,6 +8,8 @@ import {
     ShoppingCartIcon, ChevronLeftIcon, CheckIcon, ArrowLeftIcon
 } from './icons';
 import type { Product, Invoice, InvoiceItem, InvoiceSettings, CrmContact } from '../types';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 const DEFAULT_SETTINGS: InvoiceSettings = {
     organizationId: '',
@@ -38,6 +39,7 @@ export const InvoicePage: React.FC = () => {
     const { currentUser } = useAuth();
     const [activeTab, setActiveTab] = useState<'dashboard' | 'invoices' | 'inventory' | 'settings' | 'builder' | 'viewer'>('dashboard');
     const [isLoading, setIsLoading] = useState(false);
+    const [isDownloading, setIsDownloading] = useState(false);
     
     // Data State
     const [products, setProducts] = useState<Product[]>([]);
@@ -292,6 +294,53 @@ export const InvoicePage: React.FC = () => {
          window.location.href = `mailto:${invoice.customerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     };
 
+    const handleDownloadPdf = async () => {
+        const element = document.getElementById('invoice-print-area');
+        if (!element) return;
+        
+        setIsDownloading(true);
+        try {
+            const canvas = await html2canvas(element, {
+                scale: 2, // Better resolution
+                useCORS: true, // Allow loading images from other domains (Supabase)
+                logging: false,
+                backgroundColor: '#ffffff'
+            });
+            
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF({
+                orientation: 'portrait',
+                unit: 'mm',
+                format: 'a4'
+            });
+            
+            const imgWidth = 210; // A4 width in mm
+            const pageHeight = 297; // A4 height in mm
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+            
+            let heightLeft = imgHeight;
+            let position = 0;
+            
+            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+            
+            // Simple multi-page support
+            while (heightLeft >= 0) {
+                position = heightLeft - imgHeight;
+                pdf.addPage();
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+            }
+            
+            pdf.save(`Invoice-${currentInvoice?.number}.pdf`);
+        } catch (e) {
+            console.error("PDF Generation Error:", e);
+            alert("Failed to generate PDF. Please try the Print option.");
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
     // --- Render Functions ---
 
     const renderDashboard = () => {
@@ -446,9 +495,15 @@ export const InvoicePage: React.FC = () => {
                                  <label htmlFor="showDate" className="text-sm text-gray-600 select-none">Include Date & Time in Invoice</label>
                              </div>
                          </div>
-                         <div className="text-right w-full md:w-auto">
-                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Due Date</label>
-                             <input type="date" value={currentInvoice.dueDate} onChange={e => setCurrentInvoice({...currentInvoice, dueDate: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-sm outline-none"/>
+                         <div className="flex flex-col gap-3 w-full md:w-auto">
+                             <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 text-right">Invoice Date</label>
+                                <input type="date" value={currentInvoice.date} onChange={e => setCurrentInvoice({...currentInvoice, date: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-sm outline-none text-right"/>
+                             </div>
+                             <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 text-right">Due Date</label>
+                                <input type="date" value={currentInvoice.dueDate} onChange={e => setCurrentInvoice({...currentInvoice, dueDate: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-sm outline-none text-right"/>
+                             </div>
                          </div>
                      </div>
 
@@ -693,6 +748,13 @@ export const InvoicePage: React.FC = () => {
                  <div className="w-full lg:w-80 space-y-4 print-hidden">
                      <button onClick={() => window.print()} className="w-full bg-gray-900 text-white py-3 rounded-xl font-bold flex items-center justify-center hover:bg-black transition-colors shadow-lg">
                          <PrinterIcon className="mr-2 h-5 w-5" /> Print / PDF
+                     </button>
+                     <button onClick={handleDownloadPdf} disabled={isDownloading} className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold flex items-center justify-center hover:bg-indigo-700 transition-colors shadow-lg disabled:opacity-50">
+                         {isDownloading ? (
+                             <span className="flex items-center"><svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Generating...</span>
+                         ) : (
+                             <span className="flex items-center"><DownloadIcon className="mr-2 h-5 w-5" /> Download PDF</span>
+                         )}
                      </button>
                      <button onClick={() => shareWhatsApp(currentInvoice)} className="w-full bg-[#25D366] text-white py-3 rounded-xl font-bold flex items-center justify-center hover:bg-[#20bd5a] transition-colors shadow-lg">
                          <WhatsAppIcon className="mr-2 h-5 w-5" /> WhatsApp
