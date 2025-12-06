@@ -301,8 +301,8 @@ export const InvoicePage: React.FC = () => {
         setIsDownloading(true);
         try {
             const canvas = await html2canvas(element, {
-                scale: 2, // Better resolution
-                useCORS: true, // Allow loading images from other domains (Supabase)
+                scale: 2,
+                useCORS: true,
                 logging: false,
                 backgroundColor: '#ffffff'
             });
@@ -314,8 +314,8 @@ export const InvoicePage: React.FC = () => {
                 format: 'a4'
             });
             
-            const imgWidth = 210; // A4 width in mm
-            const pageHeight = 297; // A4 height in mm
+            const imgWidth = 210;
+            const pageHeight = 297;
             const imgHeight = (canvas.height * imgWidth) / canvas.width;
             
             let heightLeft = imgHeight;
@@ -324,7 +324,6 @@ export const InvoicePage: React.FC = () => {
             pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
             heightLeft -= pageHeight;
             
-            // Simple multi-page support
             while (heightLeft >= 0) {
                 position = heightLeft - imgHeight;
                 pdf.addPage();
@@ -498,11 +497,21 @@ export const InvoicePage: React.FC = () => {
                          <div className="flex flex-col gap-3 w-full md:w-auto">
                              <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1 text-right">Invoice Date</label>
-                                <input type="date" value={currentInvoice.date} onChange={e => setCurrentInvoice({...currentInvoice, date: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-sm outline-none text-right"/>
+                                <input 
+                                    type="date" 
+                                    value={currentInvoice.date} 
+                                    onChange={e => setCurrentInvoice({...currentInvoice, date: e.target.value})} 
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-sm outline-none text-right"
+                                />
                              </div>
                              <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1 text-right">Due Date</label>
-                                <input type="date" value={currentInvoice.dueDate} onChange={e => setCurrentInvoice({...currentInvoice, dueDate: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-sm outline-none text-right"/>
+                                <input 
+                                    type="date" 
+                                    value={currentInvoice.dueDate} 
+                                    onChange={e => setCurrentInvoice({...currentInvoice, dueDate: e.target.value})} 
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-sm outline-none text-right"
+                                />
                              </div>
                          </div>
                      </div>
@@ -625,6 +634,14 @@ export const InvoicePage: React.FC = () => {
 
     const renderViewer = () => {
         if (!currentInvoice) return null;
+        
+        // Format Date for Display
+        const formatDate = (dateString: string) => {
+            if (!dateString) return '';
+            const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric' };
+            return new Date(dateString).toLocaleDateString('en-US', options);
+        };
+
         return (
             <div className="animate-fadeIn flex flex-col lg:flex-row gap-6">
                 <style>
@@ -632,50 +649,43 @@ export const InvoicePage: React.FC = () => {
                     @media print {
                         @page { margin: 0; size: auto; }
                         
-                        /* Reset main layout constraints to prevent clipping */
-                        html, body, #root {
+                        html, body {
                             height: auto !important;
-                            overflow: visible !important;
                             min-height: 0 !important;
+                            overflow: visible !important;
+                            margin: 0 !important;
+                            padding: 0 !important;
                         }
 
-                        /* Hide all other content */
+                        /* HIDE EVERYTHING by default using visibility, allows structure to remain but invisible */
                         body * {
                             visibility: hidden;
                         }
 
-                        /* Reset transformations that might mess up absolute positioning */
-                        * {
-                            transition: none !important;
-                            transform: none !important;
-                            animation: none !important;
-                        }
-
-                        /* Show invoice print area and its children */
+                        /* RE-SHOW Print Area */
                         #invoice-print-area, #invoice-print-area * {
                             visibility: visible;
                         }
 
-                        /* Position print area absolutely at top left of page */
+                        /* Position the print area to cover the page */
                         #invoice-print-area {
                             position: absolute !important;
                             left: 0 !important;
                             top: 0 !important;
                             width: 100% !important;
                             margin: 0 !important;
-                            padding: 20px !important;
+                            padding: 40px !important;
+                            background: white !important;
+                            z-index: 99999;
                             border: none !important;
                             box-shadow: none !important;
-                            background: white !important;
-                            z-index: 9999;
                         }
 
-                        /* Utility to hide specific elements in print view */
                         .print-hidden { display: none !important; }
                     }
                 `}
                 </style>
-                 <div className="flex-grow bg-white p-10 rounded-none shadow-lg border border-gray-200 print:shadow-none print:border-0 print:w-full overflow-x-auto" id="invoice-print-area">
+                 <div className="flex-grow bg-white p-10 rounded-none shadow-lg border border-gray-200 overflow-x-auto" id="invoice-print-area">
                      <div className="min-w-[600px]">
                         <div className="flex justify-between items-start mb-10 border-b border-gray-100 pb-8">
                             <div>
@@ -692,8 +702,8 @@ export const InvoicePage: React.FC = () => {
                                 <p className="text-gray-600 font-bold"># {currentInvoice.number}</p>
                                 {currentInvoice.showDate !== false && (
                                     <>
-                                        <p className="text-gray-500 text-sm mt-4">Date: {currentInvoice.date}</p>
-                                        <p className="text-gray-500 text-sm">Due: {currentInvoice.dueDate}</p>
+                                        <p className="text-gray-500 text-sm mt-4"><span className="font-semibold">Date:</span> {formatDate(currentInvoice.date)}</p>
+                                        <p className="text-gray-500 text-sm"><span className="font-semibold">Due:</span> {formatDate(currentInvoice.dueDate)}</p>
                                     </>
                                 )}
                             </div>
