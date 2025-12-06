@@ -58,6 +58,7 @@ const getMonday = (d: Date) => {
 };
 
 const toLocalISOString = (date: Date) => {
+    if (isNaN(date.getTime())) return '';
     const offset = date.getTimezoneOffset() * 60000;
     const localISOTime = (new Date(date.getTime() - offset)).toISOString().slice(0, -1);
     return localISOTime.split('T')[0];
@@ -67,10 +68,11 @@ const formatDateISO = (date: Date) => toLocalISOString(date);
 
 const getTimeString = (dateStr: string) => {
     const d = new Date(dateStr);
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    return isNaN(d.getTime()) ? '' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
 };
 
 const combineDateAndTime = (dateIso: string, timeStr: string) => {
+    if (!dateIso || !timeStr) return '';
     return new Date(`${dateIso}T${timeStr}`).toISOString();
 };
 
@@ -461,8 +463,14 @@ export const TimeTrackingPage: React.FC = () => {
     };
 
     // --- Payroll Logic ---
-    const [payrollStart, setPayrollStart] = useState(new Date().toISOString().split('T')[0].substring(0, 8) + '01');
-    const [payrollEnd, setPayrollEnd] = useState(new Date().toISOString().split('T')[0]);
+    const [payrollStart, setPayrollStart] = useState(() => {
+        const now = new Date();
+        return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    });
+    const [payrollEnd, setPayrollEnd] = useState(() => {
+        const now = new Date();
+        return new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+    });
 
     const calculatePayroll = (userId: string) => {
         const config = userSalaries.find(s => s.userId === userId);
@@ -470,21 +478,26 @@ export const TimeTrackingPage: React.FC = () => {
         
         const start = new Date(payrollStart);
         const end = new Date(payrollEnd);
+        
+        // Safety check for invalid dates
+        if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) return null;
+
         const daysInPeriod = Math.ceil((end.getTime() - start.getTime()) / 86400000) + 1;
-        const dailyRate = config.baseSalary / daysInPeriod; // Simplistic
+        const dailyRate = config.baseSalary / daysInPeriod;
         
         let lopDays = 0;
         let missedDays = 0;
         
+        // Safely access admin settings with defaults
+        const workStart = adminSettings.workConfig?.startDay ?? 1;
+        const workLen = adminSettings.workConfig?.daysPerWeek ?? 5;
+
         // Iterate days
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
             const dStr = formatDateISO(d);
-            const dayOfWeek = d.getDay(); // 0=Sun
-            // Check work config
-            const workStart = adminSettings.workConfig?.startDay || 1;
-            const workLen = adminSettings.workConfig?.daysPerWeek || 5;
-            // Simple check: is day within work week range
-            // e.g. Mon(1) -> Fri(5): 1,2,3,4,5. 
+            if (!dStr) continue; // Skip invalid dates
+
+            const dayOfWeek = d.getDay(); 
             // Normalize to 0-6 relative to start day
             const relDay = (dayOfWeek - workStart + 7) % 7;
             const isWorkDay = relDay < workLen;
@@ -1024,6 +1037,229 @@ export const TimeTrackingPage: React.FC = () => {
                         <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
                             <h3 className="font-bold text-lg mb-4">Requests</h3>
                             <div className="space-y-2">{leaveRequests.map(r => <div key={r.id} className="p-2 border rounded-lg text-sm">{r.type} ({r.status})</div>)}</div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* --- PAYROLL TAB (Admin Only) --- */}
+            {activeTab === 'payroll' && currentUser?.role === 'admin' && (
+                <div className="animate-fadeIn space-y-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                         {/* Salary Config */}
+                         <div className="lg:col-span-1 bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
+                             <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center"><SettingsIcon className="mr-2 h-5 w-5 text-indigo-600"/> Salary Configuration</h3>
+                             <div className="space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar pr-2">
+                                 {users.filter(u => u.role !== 'admin').map(user => {
+                                     const config = userSalaries.find(s => s.userId === user.id) || { userId: user.id, baseSalary: 0, currency: '$' };
+                                     return (
+                                         <div key={user.id} className="bg-gray-50 p-4 rounded-2xl border border-gray-100 hover:border-indigo-100 transition-colors">
+                                             <p className="text-gray-800 font-bold mb-3">{user.username}</p>
+                                             <div className="flex gap-2 items-center">
+                                                 <input 
+                                                    type="number" 
+                                                    value={config.baseSalary} 
+                                                    onChange={e => handleUpdateSalaryConfig(user.id, 'baseSalary', parseFloat(e.target.value))}
+                                                    className="flex-grow bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                    placeholder="Salary"
+                                                 />
+                                                 <select 
+                                                    value={config.currency}
+                                                    onChange={e => handleUpdateSalaryConfig(user.id, 'currency', e.target.value)}
+                                                    className="w-24 bg-white border border-gray-200 rounded-lg px-2 py-2 text-gray-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                 >
+                                                     {CURRENCIES.map(c => <option key={c.symbol} value={c.symbol}>{c.symbol}</option>)}
+                                                 </select>
+                                                 <span className="text-gray-400 text-xs whitespace-nowrap">/ mo</span>
+                                             </div>
+                                         </div>
+                                     );
+                                 })}
+                             </div>
+                         </div>
+
+                         {/* Payroll Report */}
+                         <div className="lg:col-span-2 bg-white p-6 md:p-8 rounded-3xl border border-gray-200 shadow-sm">
+                             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                                 <h3 className="text-lg font-bold text-gray-900">Payroll Report</h3>
+                                 <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-xl border border-gray-100">
+                                    <div className="flex flex-col">
+                                        <label className="text-[10px] text-gray-400 uppercase font-bold px-1">Start</label>
+                                        <input 
+                                            type="date" 
+                                            value={payrollStart}
+                                            onChange={e => setPayrollStart(e.target.value)}
+                                            className="bg-white border border-gray-200 rounded-lg px-2 py-1 text-gray-900 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        />
+                                    </div>
+                                    <span className="text-gray-300 mt-4">-</span>
+                                    <div className="flex flex-col">
+                                        <label className="text-[10px] text-gray-400 uppercase font-bold px-1">End</label>
+                                        <input 
+                                            type="date" 
+                                            value={payrollEnd}
+                                            onChange={e => setPayrollEnd(e.target.value)}
+                                            className="bg-white border border-gray-200 rounded-lg px-2 py-1 text-gray-900 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        />
+                                    </div>
+                                 </div>
+                             </div>
+                             
+                             <div className="overflow-x-auto rounded-xl border border-gray-200">
+                                 <table className="w-full text-left">
+                                     <thead className="bg-gray-50">
+                                         <tr className="text-gray-500 text-xs uppercase font-bold border-b border-gray-200">
+                                             <th className="p-4">User</th>
+                                             <th className="p-4">Base Salary</th>
+                                             <th className="p-4 text-center">Missed Days</th>
+                                             <th className="p-4 text-center">LOP Days</th>
+                                             <th className="p-4">Deduction</th>
+                                             <th className="p-4 text-right">Net Salary</th>
+                                         </tr>
+                                     </thead>
+                                     <tbody className="text-sm bg-white divide-y divide-gray-100">
+                                         {users.filter(u => u.role !== 'admin').map(user => {
+                                             const payroll = calculatePayroll(user.id);
+                                             if (!payroll) return (
+                                                 <tr key={user.id}>
+                                                     <td colSpan={6} className="p-4 text-gray-400 text-center italic">Invalid date range or config missing</td>
+                                                 </tr>
+                                             );
+                                             return (
+                                                 <tr key={user.id} className="hover:bg-gray-50 transition-colors">
+                                                     <td className="p-4 text-gray-900 font-medium">
+                                                         {user.username}
+                                                         <span className="block text-[10px] text-gray-400 font-normal">Period: {payroll.totalDays} days</span>
+                                                     </td>
+                                                     <td className="p-4 text-gray-600">{payroll.currency}{payroll.base.toLocaleString()}</td>
+                                                     <td className="p-4 text-center">
+                                                         {payroll.missedDays > 0 ? <span className="text-amber-500 font-bold bg-amber-50 px-2 py-1 rounded-md">{payroll.missedDays}</span> : <span className="text-gray-300">-</span>}
+                                                     </td>
+                                                     <td className="p-4 text-center">
+                                                         {payroll.lopDays > 0 ? <span className="text-red-500 font-bold bg-red-50 px-2 py-1 rounded-md">{payroll.lopDays}</span> : <span className="text-gray-300">-</span>}
+                                                     </td>
+                                                     <td className="p-4 text-red-500">
+                                                         {payroll.deduction > 0 ? `-${payroll.currency}${payroll.deduction.toFixed(2)}` : '-'}
+                                                     </td>
+                                                     <td className="p-4 text-right font-bold text-green-600 text-base">{payroll.currency}{payroll.netSalary.toFixed(2)}</td>
+                                                 </tr>
+                                             );
+                                         })}
+                                     </tbody>
+                                 </table>
+                             </div>
+                             <p className="text-xs text-gray-400 mt-4 bg-blue-50 p-3 rounded-lg border border-blue-100 flex items-start gap-2">
+                                 <span className="text-blue-500 font-bold">ℹ️</span> 
+                                 Missed Days are work days ({adminSettings.workConfig?.daysPerWeek || 5} days/week starting {WEEK_DAYS.find(d => d.val === (adminSettings.workConfig?.startDay || 1))?.label}) with no logged time and no approved leave. LOP are Approved 'Unpaid' leave days.
+                             </p>
+                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* --- ADMIN SETTINGS TAB --- */}
+            {activeTab === 'admin' && currentUser?.role === 'admin' && (
+                <div className="animate-fadeIn bg-white p-8 rounded-3xl border border-gray-200 shadow-sm max-w-3xl mx-auto">
+                    <h3 className="text-2xl font-bold text-gray-900 mb-8 flex items-center"><SettingsIcon className="mr-3 h-6 w-6 text-indigo-600"/> Admin Configuration</h3>
+                    <div className="space-y-8">
+                        {/* Work Week Setup */}
+                        <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                            <h4 className="text-lg font-bold text-gray-900 mb-4">Work Week Setup</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Week Starts On</label>
+                                    <select
+                                        value={adminSettings.workConfig?.startDay ?? 1}
+                                        onChange={e => saveSettings({
+                                            ...adminSettings,
+                                            workConfig: {
+                                                ...adminSettings.workConfig,
+                                                startDay: parseInt(e.target.value),
+                                                daysPerWeek: adminSettings.workConfig?.daysPerWeek ?? 5
+                                            }
+                                        })}
+                                        className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    >
+                                        {WEEK_DAYS.map(day => (
+                                            <option key={day.val} value={day.val}>{day.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Working Days / Week</label>
+                                    <input 
+                                        type="number" 
+                                        min="1"
+                                        max="7"
+                                        value={adminSettings.workConfig?.daysPerWeek ?? 5}
+                                        onChange={e => saveSettings({
+                                            ...adminSettings,
+                                            workConfig: {
+                                                ...adminSettings.workConfig,
+                                                startDay: adminSettings.workConfig?.startDay ?? 1,
+                                                daysPerWeek: Math.max(1, Math.min(7, parseInt(e.target.value)))
+                                            }
+                                        })}
+                                        className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    />
+                                </div>
+                            </div>
+                            <p className="text-xs text-gray-400 mt-2">
+                                Note: Payroll calculations will skip days outside of this range (e.g., if 5 days starting Monday, Sat/Sun are skipped).
+                            </p>
+                        </div>
+
+                        <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                            <label className="block text-sm font-bold text-gray-700 mb-2">Minimum Weekly Hours</label>
+                            <p className="text-xs text-gray-500 mb-3">Users cannot submit timesheets below this threshold.</p>
+                            <input 
+                                type="number" 
+                                value={adminSettings.minWeeklyHours}
+                                onChange={e => saveSettings({...adminSettings, minWeeklyHours: parseInt(e.target.value)})}
+                                className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                            />
+                        </div>
+                        
+                        <div className="pt-2">
+                            <h4 className="text-lg font-bold text-gray-900 mb-4">Leave Balances (Days/Year)</h4>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                                {Object.entries(adminSettings.leaveBalances).map(([type, days]) => (
+                                    <div key={type} className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">{type}</label>
+                                        <input 
+                                            type="number" 
+                                            value={days}
+                                            onChange={e => {
+                                                const newBalances = { ...adminSettings.leaveBalances, [type]: parseInt(e.target.value) };
+                                                saveSettings({ ...adminSettings, leaveBalances: newBalances });
+                                            }}
+                                            className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none disabled:bg-gray-100 disabled:text-gray-400"
+                                            disabled={type === 'Unpaid'}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                         {/* Project Management */}
+                         <div className="border-t border-gray-100 pt-8 mt-4">
+                            <h4 className="text-lg font-bold text-gray-900 mb-4">Global Projects</h4>
+                            <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                                {projects.filter(p => p.scope === 'global').map(p => (
+                                    <div key={p.id} className="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-4 h-4 rounded-full shadow-sm" style={{ backgroundColor: p.color }}></div>
+                                            <span className="text-gray-900 font-medium">{p.name}</span>
+                                        </div>
+                                        <button onClick={() => handleDeleteProject(p.id)} className="text-gray-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition-colors"><TrashIcon className="h-4 w-4" /></button>
+                                    </div>
+                                ))}
+                                {projects.filter(p => p.scope === 'global').length === 0 && <p className="text-center text-gray-400 text-sm py-2">No global projects defined.</p>}
+                                
+                                <button onClick={() => setIsProjectModalOpen(true)} className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50 mt-4 font-bold transition-all">
+                                    + Add Global Project
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
