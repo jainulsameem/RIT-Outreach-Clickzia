@@ -58,7 +58,7 @@ const getMonday = (d: Date) => {
 };
 
 const toLocalISOString = (date: Date) => {
-    if (isNaN(date.getTime())) return '';
+    if (!date || isNaN(date.getTime())) return '';
     const offset = date.getTimezoneOffset() * 60000;
     const localISOTime = (new Date(date.getTime() - offset)).toISOString().slice(0, -1);
     return localISOTime.split('T')[0];
@@ -142,13 +142,16 @@ export const TimeTrackingPage: React.FC = () => {
         if (!currentUser) return;
         setIsLoading(true);
         try {
+            // Admin logic: fetch everyone in the org. User logic: fetch self.
             const orgUserIds = users.map(u => u.id);
+            // Fallback if users haven't loaded yet to avoid empty IN() query error
+            const targetIds = orgUserIds.length > 0 ? orgUserIds : [currentUser.id];
 
             // 1. Projects
             const { data: projData } = await supabase.from('projects').select('data');
             if (projData) {
                 const allProjs = projData.map((r: any) => r.data);
-                const orgProjs = allProjs.filter((p: Project) => p.scope === 'global' || orgUserIds.includes(p.createdBy));
+                const orgProjs = allProjs.filter((p: Project) => p.scope === 'global' || targetIds.includes(p.createdBy));
                 setProjects(orgProjs);
                 if (!selectedProject && orgProjs.length > 0) {
                     const defaultProj = orgProjs.find((p: Project) => p.scope === 'global') || orgProjs[0];
@@ -162,23 +165,32 @@ export const TimeTrackingPage: React.FC = () => {
 
             // 3. Entries
             const entryQuery = supabase.from('time_entries').select('data');
-            if (currentUser.role !== 'admin') entryQuery.eq('user_id', currentUser.id);
-            else entryQuery.in('user_id', orgUserIds);
+            if (currentUser.role !== 'admin') {
+                entryQuery.eq('user_id', currentUser.id);
+            } else {
+                // Admin: Fetch all users in org
+                entryQuery.in('user_id', targetIds);
+            }
             const { data: entryData } = await entryQuery;
             if (entryData) setEntries(entryData.map((r: any) => r.data));
 
             // 4. Leave Requests
             const leaveQuery = supabase.from('leave_requests').select('data');
-            // Allow fetching all leaves for Calendar visibility
-            if (activeTab === 'calendar' || currentUser.role === 'admin') leaveQuery.in('user_id', orgUserIds);
-            else leaveQuery.eq('user_id', currentUser.id);
+            if (activeTab === 'calendar' || currentUser.role === 'admin') {
+                leaveQuery.in('user_id', targetIds);
+            } else {
+                leaveQuery.eq('user_id', currentUser.id);
+            }
             const { data: leaveData } = await leaveQuery;
             if (leaveData) setLeaveRequests(leaveData.map((r: any) => r.data));
 
             // 5. Weekly Timesheets
             const weekQuery = supabase.from('weekly_timesheets').select('data');
-            if (currentUser.role !== 'admin') weekQuery.eq('user_id', currentUser.id);
-            else weekQuery.in('user_id', orgUserIds);
+            if (currentUser.role !== 'admin') {
+                weekQuery.eq('user_id', currentUser.id);
+            } else {
+                weekQuery.in('user_id', targetIds);
+            }
             const { data: weekData } = await weekQuery;
             if (weekData) setWeeklySubmissions(weekData.map((r: any) => r.data));
 
@@ -189,7 +201,6 @@ export const TimeTrackingPage: React.FC = () => {
             // 7. Meetings
             const { data: meetingRes } = await supabase.from('meetings').select('*');
             if (meetingRes) {
-                // Map DB columns to TS Interface
                 const mappedMeetings: Meeting[] = meetingRes.map((m: any) => ({
                     id: m.id,
                     title: m.title,
@@ -219,9 +230,11 @@ export const TimeTrackingPage: React.FC = () => {
     }, [currentUser, activeTab, users]);
 
     useEffect(() => {
+        // Set default selected user for admin view
         if (currentUser?.role === 'admin' && !adminSelectedUserId && users.length > 0) {
-            const firstUser = users.find(u => u.role !== 'admin') || users[0];
-            if (firstUser) setAdminSelectedUserId(firstUser.id);
+            // Default to first user who isn't the current admin (or first available)
+            const target = users.find(u => u.id !== currentUser.id) || users[0];
+            if (target) setAdminSelectedUserId(target.id);
         }
     }, [users, currentUser, adminSelectedUserId]);
 
@@ -438,6 +451,28 @@ export const TimeTrackingPage: React.FC = () => {
             return acc + days;
         }, 0);
         return Math.max(0, total - used);
+    };
+
+    const changeWeek = (direction: number) => {
+        const newDate = new Date(viewWeekStart);
+        newDate.setDate(newDate.getDate() + (direction * 7));
+        setViewWeekStart(newDate);
+    };
+
+    const getWeekSubmission = (userId: string, weekStart: Date) => {
+        const startStr = formatDateISO(weekStart);
+        return weeklySubmissions.find(s => s.userId === userId && s.weekStartDate === startStr);
+    };
+
+    const getStatusBadge = (status: string) => {
+        const styles = {
+            'approved': 'bg-green-100 text-green-700 border-green-200',
+            'rejected': 'bg-red-100 text-red-700 border-red-200',
+            'submitted': 'bg-blue-100 text-blue-700 border-blue-200',
+            'draft': 'bg-gray-100 text-gray-500 border-gray-200'
+        };
+        const style = styles[status as keyof typeof styles] || styles['draft'];
+        return <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${style}`}>{status}</span>;
     };
 
     // --- Actions ---
@@ -1011,14 +1046,187 @@ export const TimeTrackingPage: React.FC = () => {
 
             {activeTab === 'timesheet' && (
                 <div className="animate-fadeIn space-y-6">
-                    {/* Timesheet View Logic - Simplified for brevity but functional */}
-                    <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
-                        <h2 className="text-xl font-bold mb-4">Weekly Timesheet</h2>
-                        {renderDayRows(currentUser?.id || '', false)}
-                    </div>
+                     {/* User View: Weekly Submission */}
+                     {currentUser?.role === 'user' && (
+                        <div className="bg-white p-6 md:p-8 rounded-3xl border border-gray-200 shadow-sm">
+                            <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+                                <h2 className="text-xl font-bold text-gray-900">Weekly Timesheet</h2>
+                                <div className="flex items-center gap-4 bg-gray-50 p-1.5 rounded-xl border border-gray-100 shadow-inner">
+                                    <button onClick={() => changeWeek(-1)} className="p-2 hover:bg-white hover:shadow-sm rounded-lg text-gray-500 transition-all"><ChevronLeftIcon /></button>
+                                    <span className="font-mono text-sm font-bold text-indigo-600 px-2">
+                                        {formatDateISO(viewWeekStart)}
+                                    </span>
+                                    <button onClick={() => changeWeek(1)} className="p-2 hover:bg-white hover:shadow-sm rounded-lg text-gray-500 transition-all"><ChevronRightIcon /></button>
+                                </div>
+                            </div>
+
+                            {(() => {
+                                const currentWeekEntries = getEntriesForWeek(currentUser.id, viewWeekStart);
+                                const workedHours = calculateWeeklyHours(currentWeekEntries);
+                                const leaveCredits = getLeaveHoursForWeek(currentUser.id, viewWeekStart);
+                                const totalEffective = workedHours + leaveCredits;
+                                
+                                const submission = getWeekSubmission(currentUser.id, viewWeekStart);
+                                const isSubmitted = !!submission;
+                                const meetsRequirement = totalEffective >= adminSettings.minWeeklyHours;
+
+                                return (
+                                    <div className="space-y-8">
+                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                            <div className="bg-indigo-50/50 p-6 rounded-2xl border border-indigo-100 text-center">
+                                                <p className="text-indigo-400 text-xs uppercase font-bold mb-2">Worked</p>
+                                                <p className="text-3xl font-bold text-indigo-900">{workedHours.toFixed(2)}</p>
+                                            </div>
+                                             <div className="bg-amber-50/50 p-6 rounded-2xl border border-amber-100 text-center">
+                                                <p className="text-amber-400 text-xs uppercase font-bold mb-2">Leave Credit</p>
+                                                <p className="text-3xl font-bold text-amber-700">{leaveCredits}</p>
+                                                <p className="text-[10px] text-amber-600/60 mt-1">Approved Paid Leave (8h/day)</p>
+                                            </div>
+                                            <div className={`p-6 rounded-2xl border text-center relative overflow-hidden ${meetsRequirement ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                                                <p className="text-gray-400 text-xs uppercase font-bold mb-2 relative z-10">Total Effective</p>
+                                                <p className={`text-3xl font-bold relative z-10 ${!meetsRequirement ? 'text-gray-700' : 'text-green-700'}`}>
+                                                    {totalEffective.toFixed(2)}
+                                                </p>
+                                                <p className="text-[10px] text-gray-400 relative z-10 mt-1">Min: {adminSettings.minWeeklyHours}</p>
+                                            </div>
+                                            <div className="bg-white p-6 rounded-2xl border border-gray-100 text-center flex flex-col items-center justify-center shadow-sm">
+                                                <p className="text-gray-400 text-xs uppercase font-bold mb-2">Status</p>
+                                                {getStatusBadge(submission?.status || 'draft')}
+                                            </div>
+                                        </div>
+
+                                        {/* Day View List */}
+                                        <div className="border-t border-gray-100 pt-6">
+                                             <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Daily Breakdown</h3>
+                                             {renderDayRows(currentUser.id, false)}
+                                        </div>
+
+                                        <div className="flex justify-end pt-4">
+                                            <button 
+                                                onClick={() => handleSubmitWeek(viewWeekStart)}
+                                                disabled={isSubmitted}
+                                                className={`font-bold py-3 px-8 rounded-xl shadow-lg transition-all flex items-center transform active:scale-95 ${isSubmitted ? 'bg-gray-100 cursor-not-allowed text-gray-400 shadow-none' : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200'}`}
+                                            >
+                                                <CheckIcon className="mr-2 h-5 w-5" />
+                                                {isSubmitted ? 'Already Submitted' : 'Submit Week for Approval'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                     )}
+
+                     {/* Admin View */}
+                     {currentUser?.role === 'admin' && (
+                         <>
+                            {/* Pending Approvals Section */}
+                             <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm mb-8">
+                                 <h2 className="text-xl font-bold text-gray-900 mb-6">Pending Weekly Approvals</h2>
+                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                     {weeklySubmissions.filter(s => s.status === 'submitted').length === 0 && <p className="text-gray-400 italic col-span-2 text-center py-8">No pending submissions.</p>}
+                                     
+                                     {weeklySubmissions.filter(s => s.status === 'submitted').map(sub => {
+                                         const user = users.find(u => u.id === sub.userId);
+                                         return (
+                                             <div key={sub.id} className="bg-indigo-50 p-5 rounded-2xl border border-indigo-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+                                                 <div>
+                                                     <p className="text-gray-900 font-bold text-lg">{user?.username || 'Unknown User'}</p>
+                                                     <p className="text-sm text-indigo-600 font-medium">Week of {sub.weekStartDate}</p>
+                                                     <p className="text-xs text-gray-500 mt-1">Total Hours: {sub.totalHours.toFixed(2)}</p>
+                                                 </div>
+                                                 <div className="flex gap-2 w-full sm:w-auto">
+                                                     <button onClick={() => handleReviewWeek(sub.id, 'approve')} className="flex-1 bg-green-100 hover:bg-green-200 text-green-700 border border-green-200 px-4 py-2 rounded-xl font-bold transition-all flex items-center justify-center text-sm">
+                                                         <CheckIcon className="mr-1 h-4 w-4" /> Approve
+                                                     </button>
+                                                     <button onClick={() => handleReviewWeek(sub.id, 'reject')} className="flex-1 bg-red-100 hover:bg-red-200 text-red-700 border border-red-200 px-4 py-2 rounded-xl font-bold transition-all flex items-center justify-center text-sm">
+                                                         <CancelIcon className="mr-1 h-4 w-4" /> Reject
+                                                     </button>
+                                                 </div>
+                                             </div>
+                                         );
+                                     })}
+                                 </div>
+                             </div>
+
+                             {/* Manage User Timesheets Section */}
+                             <div className="bg-white p-6 md:p-8 rounded-3xl border border-gray-200 shadow-sm">
+                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                                    <h2 className="text-xl font-bold text-gray-900">Manage User Timesheets</h2>
+                                    <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
+                                        <select 
+                                            value={adminSelectedUserId} 
+                                            onChange={e => setAdminSelectedUserId(e.target.value)}
+                                            className="w-full sm:w-auto bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        >
+                                            <option value="" disabled>Select User</option>
+                                            {/* Allow admin to see all users, including other admins if needed */}
+                                            {users.map(u => (
+                                                <option key={u.id} value={u.id}>{u.username}</option>
+                                            ))}
+                                        </select>
+
+                                        <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-xl border border-gray-100 w-full sm:w-auto justify-between sm:justify-start">
+                                            <button onClick={() => changeWeek(-1)} className="p-2 hover:bg-white hover:shadow-sm rounded-lg text-gray-500 transition-all"><ChevronLeftIcon /></button>
+                                            <span className="font-mono text-sm font-bold text-indigo-600 px-2">
+                                                {formatDateISO(viewWeekStart)}
+                                            </span>
+                                            <button onClick={() => changeWeek(1)} className="p-2 hover:bg-white hover:shadow-sm rounded-lg text-gray-500 transition-all"><ChevronRightIcon /></button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {adminSelectedUserId ? (() => {
+                                    const userEntries = getEntriesForWeek(adminSelectedUserId, viewWeekStart);
+                                    const workedHours = calculateWeeklyHours(userEntries);
+                                    const leaveCredits = getLeaveHoursForWeek(adminSelectedUserId, viewWeekStart);
+                                    const totalEffective = workedHours + leaveCredits;
+                                    const submission = getWeekSubmission(adminSelectedUserId, viewWeekStart);
+
+                                    return (
+                                        <div className="space-y-8">
+                                            {/* Weekly Stats Summary */}
+                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex justify-between items-center">
+                                                    <span className="text-gray-500 text-xs font-bold uppercase">Worked</span>
+                                                    <span className="text-gray-900 font-bold text-xl">{workedHours.toFixed(2)}h</span>
+                                                </div>
+                                                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex justify-between items-center">
+                                                    <span className="text-gray-500 text-xs font-bold uppercase">Leave</span>
+                                                    <span className="text-gray-900 font-bold text-xl">{leaveCredits}h</span>
+                                                </div>
+                                                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex justify-between items-center">
+                                                    <span className="text-gray-500 text-xs font-bold uppercase">Status</span>
+                                                    <span>{getStatusBadge(submission?.status || 'draft')}</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex justify-between items-center">
+                                                 <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider">Daily Breakdown</h3>
+                                                 <button 
+                                                    onClick={() => openEntryModal(undefined, adminSelectedUserId)}
+                                                    className="text-xs font-bold bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-4 py-2 rounded-xl flex items-center transition-colors"
+                                                 >
+                                                     <PlusIcon className="h-3 w-3 mr-1" /> Add Manual Entry
+                                                 </button>
+                                            </div>
+
+                                            {renderDayRows(adminSelectedUserId, true)}
+
+                                        </div>
+                                    );
+                                })() : (
+                                    <div className="bg-gray-50 rounded-2xl p-10 text-center border border-dashed border-gray-200">
+                                        <p className="text-gray-500 italic">Select a user above to view and edit their timesheet.</p>
+                                    </div>
+                                )}
+                             </div>
+                         </>
+                     )}
                 </div>
             )}
 
+            {/* ... rest of the component (Time Off, Payroll, Admin Settings) remains the same ... */}
             {/* TimeOff */}
             {activeTab === 'timeoff' && (
                 <div className="animate-fadeIn">
